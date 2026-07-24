@@ -1,0 +1,161 @@
+<!-- مكتبة توليد الـ QR الذكية -->
+<script src="https://cloudflare.com"></script>
+
+<!-- واجهة الآلة المتكاملة المكشوفة بالكامل (HTML) -->
+<div style="max-width: 950px; margin: 20px auto; padding: 25px; background: #ffffff; border-radius: 12px; box-shadow: 0 5px 25px rgba(0,0,0,0.15); font-family: sans-serif; text-align: right; direction: rtl;">
+    <h2 style="color: #0073aa; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; margin-bottom: 25px;">⚙️ الآلة المتكاملة الشاملة [النسخة المفتوحة التفاعلية 100%]</h2>
+    
+    <!-- القسم الأول: لوحة الرفع الإدخال والتظبيط -->
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+        <h4 style="margin-top: 0; color: #0073aa;">🛠️ أولاً: لوحة الرفع وربط وتظبيط البيانات البنكية</h4>
+        
+        <div style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">
+            <!-- رفع الملفات والصور والبي دي إف -->
+            <div style="flex: 1; min-width: 250px; background: #fff; border: 2px dashed #0073aa; padding: 20px; border-radius: 8px; text-align: center;">
+                <strong>📁 رفع ملفات (نصوص، صور، PDFs)</strong>
+                <p style="font-size:12px; color:#666; margin:5px 0;">سيتم ربط الملف المرفوع تلقائياً بالمعاينة والـ QR</p>
+                <label style="background: #0073aa; color: #fff !important; padding: 8px 16px; border-radius: 4px; cursor: pointer; display: inline-block; margin-top: 10px; font-size: 13px;">
+                    تصفح واختر الملف من جهازك
+                    <input type="file" style="display:none;" onchange="processIncomingFileDirect(this)">
+                </label>
+                <div id="file-status" style="margin-top:10px; font-size:12px; color:#46b450; font-weight:bold;"></div>
+            </div>
+
+            <!-- تفاصيل الحساب البنكي والروابط -->
+            <div style="flex: 1; min-width: 250px; background: #fff; border: 1px solid #ddd; padding: 15px; border-radius: 8px;">
+                <strong>🏦 إدارة الحسابات وتظبيط الـ QR البنكي</strong>
+                <div style="margin-top: 10px; margin-bottom: 10px;">
+                    <label style="display:block; margin-bottom:5px; font-size:13px; font-weight:600;">رابط مخصص للـ QR (اختياري):</label>
+                    <input type="text" id="qr-url" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;" placeholder="https://example.com">
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label style="display:block; margin-bottom:5px; font-size:13px; font-weight:600;">اسم البنك:</label>
+                    <input type="text" id="b-name" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;" placeholder="بنك فلسطين / الراجحي">
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label style="display:block; margin-bottom:5px; font-size:13px; font-weight:600;">رقم الآيبان (IBAN):</label>
+                    <input type="text" id="b-iban" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;" placeholder="PS00 0000 ...">
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:5px; font-size:13px; font-weight:600;">المبلغ / الرصيد الحالي:</label>
+                    <input type="text" id="b-bal" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;" placeholder="0.00">
+                </div>
+            </div>
+        </div>
+
+        <!-- محرر النصوص المباشر -->
+        <strong style="display:block; margin-bottom:5px; font-size:14px;">📝 محرر النصوص والمستندات السريع:</strong>
+        <textarea id="text-input" style="width:100%; height:100px; padding:10px; border:1px solid #ccc; border-radius:4px; resize:vertical; box-sizing:border-box;" placeholder="اكتب أو عدّل نص المستند المكتوب هنا مباشرة..."></textarea>
+        
+        <div style="margin-top: 15px; text-align: left;">
+            <button style="background: #46b450; color: #fff !important; padding: 12px 30px; border: none; border-radius: 4px; cursor: pointer; font-size: 15px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1);" onclick="executeUltimateProcessDirect()">⚡ حفظ البيانات وتحديث شاشة العرض والـ QR فورا</button>
+        </div>
+    </div>
+
+    <!-- القسم الثاني: شاشة المعاينة والظهور التلقائي والـ QR -->
+    <div style="background: #ffffff; border: 1px solid #0073aa; padding: 20px; border-radius: 8px;">
+        <h4 style="margin-top: 0; color: #0073aa;">👁️ ثانياً: شاشة الظهور التلقائي الفوري والـ QR النشط</h4>
+        
+        <div style="background: #fafafa; padding: 20px; border: 1px solid #e2e8f0; border-right: 5px solid #0073aa; border-radius: 8px; min-height: 150px;">
+            <div id="text-render" style="font-size: 15px; color: #333;">🔍 في انتظار جلب البيانات والمستندات أو إدخال البيانات أعلاه...</div>
+            <img id="image-render" style="max-width: 100%; max-height: 250px; margin-top: 15px; border-radius: 6px; display: none; box-shadow: 0 2px 10px rgba(0,0,0,0.1);" src="" alt="المعاينة">
+            
+            <!-- كرت تفاصيل البيانات البنكية المحدثة -->
+            <div id="bank-render" style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 15px; border-radius: 6px; margin-top: 15px; display: none;">
+                <h5 style="margin:0 0 10px 0; color:#0073aa;">💳 تفاصيل الملف والحساب البنكي المكتشف:</h5>
+                <p style="margin:5px 0;"><strong>اسم البنك:</strong> <span id="r-bname">-</span></p>
+                <p style="margin:5px 0;"><strong>اسم الحساب:</strong> <span id="r-accname">-</span></p>
+                <p style="margin:5px 0;"><strong>رقم الآيبان IBAN:</strong> <span id="r-iban">-</span></p>
+                <p style="margin:5px 0;"><strong>الرصيد / المبلغ المعالج:</strong> <span id="r-balance">-</span></p>
+            </div>
+
+            <!-- توليد وتظبيط كود الـ QR التلقائي -->
+            <div id="qr-section" style="margin-top: 25px; padding: 15px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; display: none; text-align: center;">
+                <strong style="display:block; margin-bottom:10px; color:#333; font-size:14px;">🔐 كود QR المربوط تلقائياً بهذه البيانات الحالية:</strong>
+                <div id="qrcode" style="display: flex; justify-content: center;"></div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 15px; text-align: right;">
+            <button style="background: #ffb900; color: #000 !important; padding: 10px 25px; border: none; border-radius: 4px; cursor: pointer; font-size: 15px; font-weight: bold;" onclick="window.print()">🖨️ طباعة المستند مع كود الـ QR</button>
+        </div>
+    </div>
+</div>
+
+<!-- برمجية الربط والتحديث المباشر بدون تبويبات معطلة -->
+<script>
+window.processIncomingFileDirect = function(input) {
+    var file = input.files[0];
+    if (!file) return;
+
+    document.getElementById('file-status').innerText = "✔️ تم تحميل الملف: " + file.name;
+    var reader = new FileReader();
+
+    if (file.type.match('image.*')) {
+        reader.onload = function(e) {
+            var imgEl = document.getElementById('image-render');
+            imgEl.src = e.target.result;
+            imgEl.style.display = 'block';
+            document.getElementById('text-render').innerHTML = "<strong>🖼️ تم استيراد ومعاينة الصورة المرفوعة بنجاح:</strong> " + file.name;
+            updateQRCodeDataDirect("Image File: " + file.name);
+        };
+        reader.readAsDataURL(file);
+    } else {
+        reader.onload = function(e) {
+            document.getElementById('text-input').value = e.target.result;
+            document.getElementById('image-render').style.display = 'none';
+            document.getElementById('text-render').innerHTML = "<strong>📄 تم قراءة المستند وجلبه للمحرر بنجاح:</strong> " + file.name;
+            updateQRCodeDataDirect(e.target.result);
+        };
+        reader.readAsText(file);
+    }
+};
+
+function updateQRCodeDataDirect(dataString) {
+    var qrContainer = document.getElementById("qrcode");
+    qrContainer.innerHTML = ""; 
+    
+    if(!dataString || dataString.trim() === "") {
+        document.getElementById('qr-section').style.display = 'none';
+        return;
+    }
+    
+    new QRCode(qrContainer, {
+        text: dataString,
+        width: 150,
+        height: 150,
+        colorDark : "#000000",
+        colorLight : "#ffffff",
+        correctLevel : QRCode.CorrectLevel.H
+    });
+    document.getElementById('qr-section').style.display = 'block';
+}
+
+window.executeUltimateProcessDirect = function() {
+    var textValue = document.getElementById('text-input').value;
+    var customUrl = document.getElementById('qr-url').value;
+    var bankName = document.getElementById('b-name').value;
+    var bankIban = document.getElementById('b-iban').value;
+    var bankBal = document.getElementById('b-bal').value;
+
+    var qrPayload = "";
+
+    if(customUrl.trim() !== "") {
+        qrPayload = customUrl;
+    } else if(bankIban || bankName) {
+        qrPayload = "Bank: " + bankName + " | IBAN: " + bankIban + " | Amount: " + bankBal;
+    } else {
+        qrPayload = textValue || "No Data Loaded";
+    }
+
+    if(textValue.trim() !== "") {
+        document.getElementById('text-render').innerHTML = "<strong>📄 نص المستند النشط الحالي:</strong><br><br>" + textValue.replace(/\n/g, '<br>');
+    }
+
+    if(bankName || bankIban || bankBal) {
+        document.getElementById('r-bname').innerText = bankName || '-';
+        document.getElementById('r-accname').innerText = "حساب مستندات معالج";
+        document.getElementById('r-iban').innerText = bankIban || '-';
+        document.getElementById('r-balance').innerText = bankBal || '-';
+        document.getElementById('bank-render').style.display = 'block';
+    } else {

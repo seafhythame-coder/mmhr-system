@@ -1,0 +1,91 @@
+<!-- واجهة الآلة المتكاملة المكشوفة بنظام QR المباشر (HTML) -->
+<div style="max-width: 950px; margin: 20px auto; padding: 25px; background: #ffffff; border-radius: 12px; box-shadow: 0 5px 25px rgba(0,0,0,0.15); font-family: sans-serif; text-align: right; direction: rtl;">
+    <h2 style="color: #0073aa; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; margin-bottom: 25px;">⚙️ الآلة المتكاملة الشاملة [النسخة الصاروخية المفتوحة 100%]</h2>
+    
+    <!-- لوحة إدخال البيانات المباشرة -->
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+        <h4 style="margin-top: 0; color: #0073aa;">🛠️ أولاً: لوحة ربط وتظبيط البيانات البنكية والـ QR</h4>
+        
+        <div style="background: #fff; border: 1px solid #ddd; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+            <div style="margin-bottom: 12px;">
+                <label style="display:block; margin-bottom:5px; font-size:14px; font-weight:600; color:#333;">رابط مخصص للـ QR أو نص المستند (انسخه وضعه هنا):</label>
+                <input type="text" id="direct-qr-url" style="width:100%; padding:10px; border:1px solid #0073aa; border-radius:4px; box-sizing:border-box; font-size:14px;" placeholder="ضع رابط الجوجل درايف أو كشف الحساب هنا..." oninput="generateFastQR()">
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                <div style="flex: 1; min-width: 200px;">
+                    <label style="display:block; margin-bottom:5px; font-size:13px;">اسم البنك:</label>
+                    <input type="text" id="direct-bname" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;" placeholder="مثال: مصرف الراجحي" oninput="updateBankCard()">
+                </div>
+                <div style="flex: 1; min-width: 200px;">
+                    <label style="display:block; margin-bottom:5px; font-size:13px;">رقم الآيبان (IBAN):</label>
+                    <input type="text" id="direct-biban" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;" placeholder="SA308000..." oninput="updateBankCard()">
+                </div>
+            </div>
+        </div>
+        <p style="margin: 0; font-size: 13px; color: #666;">✨ السكربت صار <strong>يحدث الـ QR والبيانات تلقائياً بمجرد الكتابة</strong> وبدون الحاجة لرفع ملفات أو ضغط أزرار معلقة!</p>
+    </div>
+
+    <!-- شاشة الظهور التلقائي الفوري والـ QR النشط -->
+    <div style="background: #ffffff; border: 1px solid #0073aa; padding: 20px; border-radius: 8px;">
+        <h4 style="margin-top: 0; color: #0073aa;">👁️ ثانياً: شاشة الظهور التلقائي وكود الـ QR الفوري (تحديث لايف)</h4>
+        
+        <div style="background: #fafafa; padding: 20px; border: 1px solid #e2e8f0; border-right: 5px solid #0073aa; border-radius: 8px; text-align: center;">
+            
+            <!-- كرت الحساب البنكي المكتوب -->
+            <div id="direct-bank-render" style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 15px; border-radius: 6px; text-align: right; margin-bottom: 20px; display: none;">
+                <h5 style="margin:0 0 10px 0; color:#0073aa;">💳 تفاصيل الملف والحساب البنكي النشط:</h5>
+                <p style="margin:5px 0;"><strong>اسم البنك:</strong> <span id="lbl-bname">-</span></p>
+                <p style="margin:5px 0;"><strong>رقم الآيبان IBAN:</strong> <span id="lbl-biban">-</span></p>
+            </div>
+
+            <!-- مربع توليد الـ QR التلقائي الصاروخي من جوجل -->
+            <div id="direct-qr-holder" style="display: none; padding: 15px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; max-width: 200px; margin: 0 auto;">
+                <strong style="display:block; margin-bottom:10px; color:#333; font-size:13px;">🔐 رمز QR المولد فوري:</strong>
+                <img id="google-qr-img" src="" style="width: 160px; height: 160px; margin: 0 auto; display: block;" alt="كود QR">
+            </div>
+            
+            <div id="direct-empty-msg" style="color: #666; font-size: 14px;">🔍 اكتب أو الصق الرابط في الخانة العلوية ليظهر لك كود الـ QR هنا فوراً...</div>
+        </div>
+        
+        <div style="margin-top: 15px; text-align: right;">
+            <button style="background: #ffb900; color: #000 !important; padding: 10px 25px; border: none; border-radius: 4px; cursor: pointer; font-size: 15px; font-weight: bold;" onclick="window.print()">🖨️ طباعة المستند والـ QR الحالي</button>
+        </div>
+    </div>
+</div>
+
+<!-- برمجية التحديث الفوري المباشر بدون أزرار -->
+<script>
+function generateFastQR() {
+    var rawData = document.getElementById('direct-qr-url').value;
+    var qrHolder = document.getElementById('direct-qr-holder');
+    var emptyMsg = document.getElementById('direct-empty-msg');
+    var qrImg = document.getElementById('google-qr-img');
+    
+    if (rawData.trim() === "") {
+        qrHolder.style.display = 'none';
+        emptyMsg.style.display = 'block';
+        return;
+    }
+    
+    // استخدام محرك جوجل الفوري لتوليد وتظبيط الـ QR كصورة عادية مستحيل تفتح PDF
+    var googleQRUrl = "https://googleapis.com" + encodeURIComponent(rawData) + "&choe=UTF-8";
+    qrImg.src = googleQRUrl;
+    
+    qrHolder.style.display = 'block';
+    emptyMsg.style.display = 'none';
+}
+
+function updateBankCard() {
+    var bName = document.getElementById('direct-bname').value;
+    var bIban = document.getElementById('direct-biban').value;
+    var card = document.getElementById('direct-bank-render');
+    
+    if (bName.trim() !== "" || bIban.trim() !== "") {
+        document.getElementById('lbl-bname').innerText = bName || '-';
+        document.getElementById('lbl-biban').innerText = bIban || '-';
+        card.style.display = 'block';
+    } else {
+        card.style.display = 'none';
+    }
+}
+</script>

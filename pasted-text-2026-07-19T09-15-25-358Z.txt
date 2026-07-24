@@ -1,0 +1,152 @@
+<!-- واجهة الآلة الشاملة (HTML) -->
+<div style="max-width: 950px; margin: 20px auto; padding: 25px; background: #ffffff; border-radius: 12px; box-shadow: 0 5px 25px rgba(0,0,0,0.15); font-family: sans-serif; text-align: right; direction: rtl;">
+    <h3>⚙️ الآلة المتكاملة الشاملة الـ 100% (مستندات، صور، حسابات بنكية، نظام الـ QR)</h3>
+    
+    <!-- الأزرار على شكل روابط تفاعلية صريحة لمنع التعليق -->
+    <div style="display: flex; border-bottom: 2px solid #e0e0e0; margin-bottom: 20px; gap: 10px;">
+        <a href="javascript:void(0);" id="tab-v" style="padding: 12px 25px; text-decoration: none !important; font-size: 15px; font-weight: bold; color: #0073aa !important; border-bottom: 3px solid #0073aa; cursor: pointer;" onclick="runMachineToggle('view-pane', 'edit-pane', this)">👁️ شاشة الظهور التلقائي والـ QR</a>
+        <a href="javascript:void(0);" id="tab-e" style="padding: 12px 25px; text-decoration: none !important; font-size: 15px; font-weight: bold; color: #666 !important; border-bottom: 3px solid transparent; cursor: pointer;" onclick="runMachineToggle('edit-pane', 'view-pane', this)">🛠️ لوحة الرفع والربط وتظبيط البيانات والـ QR</a>
+    </div>
+
+    <!-- 1. شاشة الظهور التلقائي والطباعة والـ QR -->
+    <div id="view-pane" style="display: block; padding: 10px 0;">
+        <div style="background: #fff; padding: 20px; border: 1px solid #e2e8f0; border-right: 5px solid #0073aa; border-radius: 8px; min-height: 150px; position: relative;">
+            <h4 style="margin-top:0; color:#0073aa;">📄 معاينة المستند والروابط النشطة:</h4>
+            <div id="text-render">🔍 في انتظار جلب البيانات والمستندات لتوليد الـ QR التلقائي...</div>
+            <img id="image-render" style="max-width: 100%; max-height: 250px; margin-top: 15px; border-radius: 6px; display: none; box-shadow: 0 2px 10px rgba(0,0,0,0.1);" src="" alt="المعاينة">
+            
+            <div id="bank-render" style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 15px; border-radius: 6px; margin-top: 15px; display: none;">
+                <h5 style="margin:0 0 10px 0; color:#0073aa;">💳 تفاصيل الملف والحساب البنكي الصادر:</h5>
+                <p style="margin:5px 0;"><strong>اسم البنك:</strong> <span id="r-bname">-</span></p>
+                <p style="margin:5px 0;"><strong>اسم الحساب:</strong> <span id="r-accname">-</span></p>
+                <p style="margin:5px 0;"><strong>رقم الآيبان IBAN:</strong> <span id="r-iban">-</span></p>
+                <p style="margin:5px 0;"><strong>الرصيد / المبلغ الحالي:</strong> <span id="r-balance">-</span></p>
+            </div>
+
+            <!-- مربع توليد الـ QR المربوط تلقائياً -->
+            <div id="qr-section" style="margin-top: 20px; padding: 15px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; display: none; text-align: center;">
+                <strong style="display:block; margin-bottom:8px; color:#333; font-size:13px;">🔐 رمز QR المربوط تلقائياً بالبيانات:</strong>
+                <div id="qrcode" style="display: flex; justify-content: center;"></div>
+            </div>
+        </div>
+        <div style="margin-top: 15px;">
+            <button style="background: #ffb900; color: #000 !important; padding: 10px 25px; border: none; border-radius: 4px; cursor: pointer; font-size: 15px; font-weight: bold;" onclick="window.print()">🖨️ طباعة المستند مع كود الـ QR</button>
+        </div>
+    </div>
+
+    <!-- 2. لوحة الرفع الشامل وتعديل المستندات وضبط الـ QR -->
+    <div id="edit-pane" style="display: none; padding: 10px 0;">
+        <div style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">
+            <!-- رفع الصور والملفات والبي دي إف -->
+            <div style="flex: 1; min-width: 250px; background: #f8fafc; border: 2px dashed #0073aa; padding: 20px; border-radius: 8px; text-align: center;">
+                <strong>📁 رفع ملفات (ملفات، صور، PDFs)</strong>
+                <p style="font-size:12px; color:#666; margin:5px 0;">سيتم ربط الملف المرفوع بكود الـ QR مباشرة</p>
+                <label style="background: #0073aa; color: #fff !important; padding: 8px 16px; border-radius: 4px; cursor: pointer; display: inline-block; margin-top: 10px; font-size: 13px;">
+                    تصفح واختر الملف
+                    <input type="file" style="display:none;" onchange="processIncomingFile(this)">
+                </label>
+                <div id="file-status" style="margin-top:10px; font-size:12px; color:#46b450; font-weight:bold;"></div>
+            </div>
+
+            <!-- إدخال الحسابات البنكية أو رابط مخصص للـ QR -->
+            <div style="flex: 1; min-width: 250px; background: #fff; border: 1px solid #ddd; padding: 15px; border-radius: 8px;">
+                <strong style="display:block; margin-bottom:10px;">🏦 إدارة الحسابات والبيانات لربط الـ QR</strong>
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:600; font-size:14px;">رابط مخصص للـ QR (اختياري):</label>
+                    <input type="text" id="qr-url" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;" placeholder="https://example.com">
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:600; font-size:14px;">اسم البنك:</label>
+                    <input type="text" id="b-name" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;" placeholder="بنك فلسطين / الراجحي">
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:600; font-size:14px;">رقم الآيبان (IBAN):</label>
+                    <input type="text" id="b-iban" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;" placeholder="PS00 0000 ...">
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:600; font-size:14px;">المبلغ / الرصيد المعالج:</label>
+                    <input type="text" id="b-bal" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;" placeholder="0.00">
+                </div>
+            </div>
+        </div>
+
+        <!-- محرر النصوص المباشر -->
+        <strong style="display:block; margin-bottom:5px;">📝 محرر النصوص والمستندات وتعديل الـ QR السريع:</strong>
+        <textarea id="text-input" style="width:100%; height:120px; padding:10px; border:1px solid #ccc; border-radius:4px; resize:vertical; box-sizing:border-box;" placeholder="اكتب نص المستند أو تفاصيل المعاملة هنا ليتم تشفيرها داخل الـ QR..."></textarea>
+        
+        <div style="margin-top: 15px;">
+            <button style="background: #46b450; color: #fff !important; padding: 10px 25px; border: none; border-radius: 4px; cursor: pointer; font-size: 15px; font-weight: bold;" onclick="executeUltimateProcess()">⚡ حفظ كافة البيانات وتحديث وتظبيط الـ QR</button>
+        </div>
+    </div>
+</div>
+
+<!-- برمجية التفاعل وتوليد الـ QR القوية المستقلة -->
+<script>
+// تحميل مكتبة الـ QR برمجياً بشكل مستقل لتجنب تعليق الأزرار
+if (typeof QRCode === 'undefined') {
+    var script = document.createElement('script');
+    script.src = "https://cloudflare.com";
+    document.head.appendChild(script);
+}
+
+window.runMachineToggle = function(showId, hideId, element) {
+    document.getElementById(hideId).style.display = 'none';
+    document.getElementById(showId).style.display = 'block';
+    
+    document.getElementById('tab-v').style.color = '#666';
+    document.getElementById('tab-v').style.borderBottom = '3px solid transparent';
+    document.getElementById('tab-e').style.color = '#666';
+    document.getElementById('tab-e').style.borderBottom = '3px solid transparent';
+    
+    element.style.color = '#0073aa';
+    element.style.borderBottom = '3px solid #0073aa';
+};
+
+window.processIncomingFile = function(input) {
+    var file = input.files[0];
+    if (!file) return;
+
+    document.getElementById('file-status').innerText = "✔️ تم تحميل: " + file.name;
+    var reader = new FileReader();
+
+    if (file.type.match('image.*')) {
+        reader.onload = function(e) {
+            var imgEl = document.getElementById('image-render');
+            imgEl.src = e.target.result;
+            imgEl.style.display = 'block';
+            document.getElementById('text-render').innerHTML = "<strong>🖼️ تم استيراد ومعاينة الصورة بنجاح:</strong> " + file.name;
+            updateQRCodeData("Image File: " + file.name);
+            window.runMachineToggle('view-pane', 'edit-pane', document.getElementById('tab-v'));
+        };
+        reader.readAsDataURL(file);
+    } else {
+        reader.onload = function(e) {
+            document.getElementById('text-input').value = e.target.result;
+            document.getElementById('image-render').style.display = 'none';
+            document.getElementById('text-render').innerHTML = "<strong>📄 تم قراءة المستند وجلبه للمحرر:</strong> " + file.name;
+            updateQRCodeData(e.target.result);
+            window.runMachineToggle('view-pane', 'edit-pane', document.getElementById('tab-v'));
+        };
+        reader.readAsText(file);
+    }
+};
+
+function updateQRCodeData(dataString) {
+    var qrContainer = document.getElementById("qrcode");
+    qrContainer.innerHTML = ""; 
+    
+    if(!dataString || dataString.trim() === "") {
+        document.getElementById('qr-section').style.display = 'none';
+        return;
+    }
+    
+    new QRCode(qrContainer, {
+        text: dataString,
+        width: 140,
+        height: 140,
+        colorDark : "#000000",
+        colorLight : "#ffffff",
+        correctLevel : QRCode.CorrectLevel.H
+    });
+    document.getElementById('qr-section').style.display = 'block';
+}
