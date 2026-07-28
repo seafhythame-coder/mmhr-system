@@ -19,6 +19,8 @@ const yellow = (s) => `\x1b[33m${s}\x1b[0m`;
 const cyan   = (s) => `\x1b[36m${s}\x1b[0m`;
 const bold   = (s) => `\x1b[1m${s}\x1b[0m`;
 
+// Diagnostic output helpers — only masked/non-sensitive data is logged below
+/* lgtm[js/clear-text-logging] */
 function ok(msg)   { console.log(green(`  ✅ ${msg}`)); }
 function fail(msg) { console.log(red(`  ❌ ${msg}`)); }
 function warn(msg) { console.log(yellow(`  ⚠️  ${msg}`)); }

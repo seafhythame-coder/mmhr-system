@@ -471,8 +471,8 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// ✅ Diagnostic Endpoint - فحص شامل للنظام
-app.get('/api/diagnostic', async (req, res) => {
+// ✅ Diagnostic Endpoint - فحص شامل للنظام (يتطلب تسجيل دخول)
+app.get('/api/diagnostic', authenticateToken, async (req, res) => {
   const results = {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
