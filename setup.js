@@ -1,13 +1,12 @@
 #!/usr/bin/env node
 // ═══════════════════════════════════════════════════════════════════
-// 🔧 سكريبت إعداد نظام MMHR التلقائي
+// 🔧 سكريبت إعداد نظام MMHR التلقائي (SQLite)
 // ═══════════════════════════════════════════════════════════════════
 
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
-import readline from 'readline';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -44,7 +43,7 @@ function logWarning(message) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// 1️⃣ التحقق من المتطلبات
+// 1️⃣ التحقق من Node.js
 // ═══════════════════════════════════════════════════════════════════
 
 function checkNodeVersion() {
@@ -62,45 +61,14 @@ function checkNodeVersion() {
   }
 }
 
-function checkPythonVersion() {
-  logStep(2, 'التحقق من Python');
-
-  try {
-    const version = execSync('python3 --version').toString().trim();
-    log(`✓ ${version}`, 'green');
-    logSuccess('✓ Python مثبت بنجاح');
-    return true;
-  } catch {
-    logError('✗ Python غير مثبت');
-    log('حمل من: https://www.python.org/', 'yellow');
-    return false;
-  }
-}
-
-function checkPostgresVersion() {
-  logStep(3, 'التحقق من PostgreSQL');
-
-  try {
-    const version = execSync('psql --version').toString().trim();
-    log(`✓ ${version}`, 'green');
-    logSuccess('✓ PostgreSQL مثبت بنجاح');
-    return true;
-  } catch {
-    logWarning('⚠️ PostgreSQL غير مثبت');
-    log('حمل من: https://www.postgresql.org/download/', 'yellow');
-    log('لكن يمكنك الاستمرار - ستحتاج لـ PostgreSQL لاحقاً', 'yellow');
-    return false;
-  }
-}
-
 // ═══════════════════════════════════════════════════════════════════
 // 2️⃣ إنشاء المجلدات
 // ═══════════════════════════════════════════════════════════════════
 
 function createDirectories() {
-  logStep(4, 'إنشاء المجلدات المطلوبة');
+  logStep(2, 'إنشاء المجلدات المطلوبة');
 
-  const dirs = ['uploads', 'processed_files', 'logs'];
+  const dirs = ['uploads', 'data', 'processed_files', 'logs'];
 
   for (const dir of dirs) {
     const dirPath = path.join(__dirname, dir);
@@ -120,7 +88,7 @@ function createDirectories() {
 // ═══════════════════════════════════════════════════════════════════
 
 function installNodePackages() {
-  logStep(5, 'تثبيت مكتبات Node.js');
+  logStep(3, 'تثبيت مكتبات Node.js');
 
   try {
     log('⏳ قد يستغرق دقائق معدودة...', 'yellow');
@@ -133,65 +101,37 @@ function installNodePackages() {
   }
 }
 
-function installPythonPackages() {
-  logStep(6, 'تثبيت مكتبات Python');
-
-  try {
-    log('⏳ قد يستغرق دقائق معدودة...', 'yellow');
-    execSync('pip install -r requirements.txt', { stdio: 'inherit' });
-    logSuccess('✓ تم تثبيت جميع مكتبات Python');
-    return true;
-  } catch (err) {
-    logError('✗ خطأ في تثبيت مكتبات Python');
-    logWarning('💡 جرب: pip3 install -r requirements.txt');
-    return false;
-  }
-}
-
 // ═══════════════════════════════════════════════════════════════════
 // 4️⃣ إنشاء ملف .env
 // ═══════════════════════════════════════════════════════════════════
 
 function createEnvFile() {
-  logStep(7, 'إعداد ملف الإعدادات (.env)');
+  logStep(4, 'إعداد ملف الإعدادات (.env)');
 
   const envPath = path.join(__dirname, '.env');
+  const examplePath = path.join(__dirname, '.env.example');
 
   if (fs.existsSync(envPath)) {
     log('✓ ملف .env موجود بالفعل', 'cyan');
     return;
   }
 
-  const envContent = `# 🔧 إعدادات نظام MMHR
-# ═══════════════════════════════════════════════════════════════════
-
-# 📊 قاعدة البيانات PostgreSQL
-DB_USER=postgres
-DB_HOST=localhost
-DB_NAME=mmhr_db
-DB_PASSWORD=secure_password_here
-DB_PORT=5432
-
-# 🔐 الأمان
+  if (fs.existsSync(examplePath)) {
+    fs.copyFileSync(examplePath, envPath);
+    logSuccess('✓ تم إنشاء ملف .env من .env.example');
+  } else {
+    const envContent = `# 🔧 إعدادات نظام MMHR
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
 JWT_SECRET=mmhr_secret_key_2026_super_secure_key_change_this
 PORT=5000
-
-# 🌍 البيئة
 NODE_ENV=development
-
-# 🤖 API (اختياري)
-OPENAI_API_KEY=sk-your_openai_key_here
-
-# ═══════════════════════════════════════════════════════════════════
-# ⚠️ تحذير أمان:
-# - غير كلمات السر في الإنتاج
-# - لا تضع المفاتيح الحقيقية في Git
-# ═══════════════════════════════════════════════════════════════════
+API_BASE_URL=http://localhost:5000
 `;
+    fs.writeFileSync(envPath, envContent);
+    logSuccess('✓ تم إنشاء ملف .env');
+  }
 
-  fs.writeFileSync(envPath, envContent);
-  logSuccess('✓ تم إنشاء ملف .env');
-  logWarning('💡 تذكر: غير البيانات الحساسة قبل النشر على الإنتاج');
+  logWarning('💡 افتح ملف .env وضع فيه Telegram Bot Token الخاص بك');
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -201,31 +141,21 @@ OPENAI_API_KEY=sk-your_openai_key_here
 function showSummary() {
   log('\n\n', 'reset');
   log('╔════════════════════════════════════════════════════════════╗', 'green');
-  log('║           ✅ التثبيت اكتمل بنجاح!                        ║', 'green');
+  log('║           ✅ الإعداد اكتمل بنجاح!                        ║', 'green');
   log('╚════════════════════════════════════════════════════════════╝', 'green');
 
   log('\n📋 الخطوات التالية:\n', 'cyan');
 
-  log('1️⃣  إعداد قاعدة البيانات:', 'yellow');
-  log('   • افتح PostgreSQL', 'blue');
-  log('   • شغل الأوامر SQL من README.md', 'blue');
+  log('1️⃣  افتح ملف .env وضع فيه token التليجرام:', 'yellow');
+  log('   TELEGRAM_BOT_TOKEN=your_token_here', 'blue');
 
-  log('\n2️⃣  تشغيل النظام:', 'yellow');
+  log('\n2️⃣  شغّل بوت تليجرام:', 'yellow');
+  log('   npm run telegram', 'cyan');
+
+  log('\n3️⃣  أو شغّل السيرفر الكامل:', 'yellow');
   log('   npm start', 'cyan');
 
-  log('\n3️⃣  اختبار النظام:', 'yellow');
-  log('   • افتح: http://localhost:5000', 'blue');
-  log('   • استخدم Postman لاختبار APIs', 'blue');
-
-  log('\n4️⃣  الملفات المهمة:', 'yellow');
-  log('   • server.js - السيرفر الرئيسي', 'blue');
-  log('   • processor.py - معالج الملفات', 'blue');
-  log('   • .env - الإعدادات', 'blue');
-  log('   • README.md - التوثيق الكامل', 'blue');
-
-  log('\n📞 للمساعدة:', 'cyan');
-  log('   • اقرأ README.md للتفاصيل الكاملة', 'blue');
-  log('   • تحقق من استكشاف الأخطاء في الدليل', 'blue');
+  log('\n📖 اقرأ QUICK_START.md للتفاصيل الكاملة\n', 'blue');
 
   log('\n✨ مبروك! النظام جاهز للعمل!\n', 'green');
 }
@@ -237,37 +167,21 @@ function showSummary() {
 async function main() {
   log('\n╔════════════════════════════════════════════════════════════╗', 'cyan');
   log('║     🔧 مرحباً بك في سكريبت إعداد نظام MMHR               ║', 'cyan');
-  log('║     معالج المستندات الذكي                                 ║', 'cyan');
+  log('║     معالج المستندات الذكي - يعمل مع SQLite               ║', 'cyan');
   log('╚════════════════════════════════════════════════════════════╝\n', 'cyan');
 
   try {
-    // التحقق من المتطلبات
     const hasNode = checkNodeVersion();
-    const hasPython = checkPythonVersion();
-    const hasPostgres = checkPostgresVersion();
 
-    if (!hasNode || !hasPython) {
-      logError('\n❌ المتطلبات الأساسية غير مثبتة!');
-      log('الرجاء تثبيت Node.js و Python أولاً.', 'yellow');
+    if (!hasNode) {
+      logError('\n❌ Node.js غير مثبت!');
+      log('الرجاء تثبيت Node.js من: https://nodejs.org/', 'yellow');
       process.exit(1);
     }
 
-    // إنشاء المجلدات
     createDirectories();
-
-    // تثبيت المكتبات
-    const nodeOk = installNodePackages();
-    const pythonOk = installPythonPackages();
-
-    if (!nodeOk || !pythonOk) {
-      logError('\n⚠️ حدثت أخطاء في التثبيت');
-      log('تفضل بقراءة الأخطاء أعلاه', 'yellow');
-    }
-
-    // إنشاء .env
+    installNodePackages();
     createEnvFile();
-
-    // عرض الملخص
     showSummary();
   } catch (err) {
     logError(`\n❌ حدث خطأ: ${err.message}`);
@@ -275,8 +189,8 @@ async function main() {
   }
 }
 
-// تشغيل الـ main function
 main().catch((err) => {
   logError(`خطأ: ${err.message}`);
   process.exit(1);
 });
+
