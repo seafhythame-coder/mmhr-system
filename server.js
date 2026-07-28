@@ -21,12 +21,29 @@ const upload = multer({ dest: 'uploads/' });
 const { Pool } = pg;
 
 // ✅ قاعدة البيانات
-const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'mmhr_db',
-  password: process.env.DB_PASSWORD || 'password',
-  port: process.env.DB_PORT || 5432,
+const pool = new Pool(
+  process.env.DATABASE_URL
+    ? {
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      }
+    : {
+        user: process.env.DB_USER || 'postgres',
+        host: process.env.DB_HOST || 'localhost',
+        database: process.env.DB_NAME || 'mmhr_db',
+        password: process.env.DB_PASSWORD || 'password',
+        port: parseInt(process.env.DB_PORT) || 5432,
+      }
+);
+
+// اختبار الاتصال بقاعدة البيانات عند البدء
+pool.connect((err, client, release) => {
+  if (err) {
+    console.error('❌ خطأ في الاتصال بقاعدة البيانات:', err.message);
+  } else {
+    console.log('✅ تم الاتصال بقاعدة البيانات بنجاح');
+    release();
+  }
 });
 
 // ✅ Middleware
@@ -38,7 +55,7 @@ app.use(express.static('public'));
 const SECRET_KEY = process.env.JWT_SECRET || 'mmhr_secret_key_2026';
 
 console.log('\n🔧 إعدادات النظام:');
-console.log(`📊 قاعدة البيانات: ${process.env.DB_NAME || 'mmhr_db'}`);
+console.log(`📊 قاعدة البيانات: ${process.env.DATABASE_URL ? 'DATABASE_URL (Render)' : (process.env.DB_NAME || 'mmhr_db')}`);
 console.log(`🌐 البيئة: ${process.env.NODE_ENV || 'development'}\n`);
 
 // ✅ Middleware للتحقق من Token
