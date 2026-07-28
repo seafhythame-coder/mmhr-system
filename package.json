@@ -9,6 +9,7 @@
     "dev": "nodemon server.js",
     "setup": "node setup.js",
     "telegram": "node telegram-bot.js",
+    "simple-bot": "node telegram-simple.js",
     "whatsapp": "node whatsapp-bot.js",
     "bots": "concurrently \"npm start\" \"npm run telegram\" \"npm run whatsapp\""
   },
