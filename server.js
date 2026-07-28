@@ -3,7 +3,7 @@ import multer from 'multer';
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
-import pg from 'pg';
+import Database from 'better-sqlite3';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import cors from 'cors';
@@ -18,16 +18,39 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
-const { Pool } = pg;
 
-// ✅ قاعدة البيانات
-const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'mmhr_db',
-  password: process.env.DB_PASSWORD || 'password',
-  port: process.env.DB_PORT || 5432,
-});
+// ✅ قاعدة البيانات SQLite
+const dataDir = path.join(__dirname, 'data');
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
+
+const db = new Database(path.join(dataDir, 'mmhr.db'));
+
+// إنشاء الجداول تلقائياً إذا لم تكن موجودة
+db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS documents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    file_name TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    file_type TEXT,
+    file_size INTEGER,
+    status TEXT DEFAULT 'processing',
+    processed_text TEXT,
+    error_message TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+`);
 
 // ✅ Middleware
 app.use(cors());
@@ -38,7 +61,7 @@ app.use(express.static('public'));
 const SECRET_KEY = process.env.JWT_SECRET || 'mmhr_secret_key_2026';
 
 console.log('\n🔧 إعدادات النظام:');
-console.log(`📊 قاعدة البيانات: ${process.env.DB_NAME || 'mmhr_db'}`);
+console.log(`📊 قاعدة البيانات: SQLite (data/mmhr.db)`);
 console.log(`🌐 البيئة: ${process.env.NODE_ENV || 'development'}\n`);
 
 // ✅ Middleware للتحقق من Token
@@ -93,18 +116,18 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const result = await pool.query(
-      'INSERT INTO users (username, email, password) VALUES ($1, $2, $3) RETURNING id, username, email',
-      [username, email, hashedPassword]
+    const stmt = db.prepare(
+      'INSERT INTO users (username, email, password) VALUES (?, ?, ?)'
     );
+    const result = stmt.run(username, email, hashedPassword);
 
     res.status(201).json({
       status: '✅ تم التسجيل بنجاح',
       message: 'يمكنك الآن تسجيل الدخول',
-      user: result.rows[0],
+      user: { id: result.lastInsertRowid, username, email },
     });
   } catch (err) {
-    if (err.code === '23505') {
+    if (err.message && err.message.includes('UNIQUE constraint failed')) {
       return res.status(400).json({ 
         error: '❌ البريد أو اسم المستخدم موجود بالفعل',
         code: 'DUPLICATE_USER'
@@ -129,16 +152,15 @@ app.post('/api/auth/login', async (req, res) => {
   }
 
   try {
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
 
-    if (result.rows.length === 0) {
+    if (!user) {
       return res.status(401).json({ 
         error: '❌ بريد أو كلمة سر خاطئة',
         code: 'INVALID_CREDENTIALS'
       });
     }
 
-    const user = result.rows[0];
     const validPassword = await bcrypt.compare(password, user.password);
 
     if (!validPassword) {
@@ -199,12 +221,12 @@ app.post('/api/documents/upload', authenticateToken, upload.single('file'), asyn
 
   try {
     // حفظ معلومات الملف في قاعدة البيانات
-    const dbResult = await pool.query(
-      'INSERT INTO documents (user_id, file_name, file_path, file_type, file_size, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
-      [userId, fileName, filePath, fileType, fileSize, 'processing']
+    const stmt = db.prepare(
+      'INSERT INTO documents (user_id, file_name, file_path, file_type, file_size, status) VALUES (?, ?, ?, ?, ?, ?)'
     );
+    const dbResult = stmt.run(userId, fileName, filePath, fileType, fileSize, 'processing');
 
-    const documentId = dbResult.rows[0].id;
+    const documentId = dbResult.lastInsertRowid;
 
     console.log(`\n📥 ملف جديد: ${fileName} (ID: ${documentId})`);
     console.log(`📊 الحجم: ${(fileSize / 1024).toFixed(2)} KB`);
@@ -229,20 +251,14 @@ app.post('/api/documents/upload', authenticateToken, upload.single('file'), asyn
       console.log(`⚠️ تحذير من Python: ${data.toString()}`);
     });
 
-    pythonProcess.on('close', async (code) => {
+    pythonProcess.on('close', (code) => {
       if (code === 0) {
-        await pool.query(
-          'UPDATE documents SET status = $1, processed_text = $2 WHERE id = $3',
-          ['completed', output, documentId]
-        );
-
+        db.prepare('UPDATE documents SET status = ?, processed_text = ? WHERE id = ?')
+          .run('completed', output, documentId);
         console.log(`✅ تم معالجة الملف: ${fileName}`);
       } else {
-        await pool.query(
-          'UPDATE documents SET status = $1, error_message = $2 WHERE id = $3',
-          ['error', errorOutput, documentId]
-        );
-
+        db.prepare('UPDATE documents SET status = ?, error_message = ? WHERE id = ?')
+          .run('error', errorOutput, documentId);
         console.log(`❌ خطأ في المعالجة: ${errorOutput}`);
       }
     });
@@ -268,15 +284,14 @@ app.post('/api/documents/upload', authenticateToken, upload.single('file'), asyn
 // ✅ جلب المستندات
 app.get('/api/documents', authenticateToken, async (req, res) => {
   try {
-    const result = await pool.query(
-      'SELECT * FROM documents WHERE user_id = $1 ORDER BY created_at DESC',
-      [req.user.id]
-    );
+    const documents = db.prepare(
+      'SELECT * FROM documents WHERE user_id = ? ORDER BY created_at DESC'
+    ).all(req.user.id);
 
     res.json({
       status: '✅ تم جلب المستندات',
-      count: result.rows.length,
-      documents: result.rows,
+      count: documents.length,
+      documents,
     });
   } catch (err) {
     res.status(500).json({ 
@@ -291,12 +306,11 @@ app.get('/api/documents/:id', authenticateToken, async (req, res) => {
   const documentId = req.params.id;
 
   try {
-    const result = await pool.query(
-      'SELECT * FROM documents WHERE id = $1 AND user_id = $2',
-      [documentId, req.user.id]
-    );
+    const document = db.prepare(
+      'SELECT * FROM documents WHERE id = ? AND user_id = ?'
+    ).get(documentId, req.user.id);
 
-    if (result.rows.length === 0) {
+    if (!document) {
       return res.status(404).json({ 
         error: '❌ الملف غير موجود',
         code: 'NOT_FOUND'
@@ -305,7 +319,7 @@ app.get('/api/documents/:id', authenticateToken, async (req, res) => {
 
     res.json({
       status: '✅ تم جلب الملف',
-      document: result.rows[0],
+      document,
     });
   } catch (err) {
     res.status(500).json({ 
@@ -320,19 +334,16 @@ app.get('/api/documents/:id/download', authenticateToken, async (req, res) => {
   const documentId = req.params.id;
 
   try {
-    const result = await pool.query(
-      'SELECT * FROM documents WHERE id = $1 AND user_id = $2',
-      [documentId, req.user.id]
-    );
+    const document = db.prepare(
+      'SELECT * FROM documents WHERE id = ? AND user_id = ?'
+    ).get(documentId, req.user.id);
 
-    if (result.rows.length === 0) {
+    if (!document) {
       return res.status(404).json({ 
         error: '❌ الملف غير موجود',
         code: 'NOT_FOUND'
       });
     }
-
-    const document = result.rows[0];
 
     if (document.status !== 'completed') {
       return res.status(400).json({ 
@@ -370,19 +381,16 @@ app.delete('/api/documents/:id', authenticateToken, async (req, res) => {
   const documentId = req.params.id;
 
   try {
-    const result = await pool.query(
-      'SELECT * FROM documents WHERE id = $1 AND user_id = $2',
-      [documentId, req.user.id]
-    );
+    const document = db.prepare(
+      'SELECT * FROM documents WHERE id = ? AND user_id = ?'
+    ).get(documentId, req.user.id);
 
-    if (result.rows.length === 0) {
+    if (!document) {
       return res.status(404).json({ 
         error: '❌ الملف غير موجود',
         code: 'NOT_FOUND'
       });
     }
-
-    const document = result.rows[0];
 
     // حذف الملفات من النظام
     if (fs.existsSync(document.file_path)) {
@@ -395,7 +403,7 @@ app.delete('/api/documents/:id', authenticateToken, async (req, res) => {
     }
 
     // حذف من قاعدة البيانات
-    await pool.query('DELETE FROM documents WHERE id = $1', [documentId]);
+    db.prepare('DELETE FROM documents WHERE id = ?').run(documentId);
 
     res.json({
       status: '✅ تم حذف الملف بنجاح',
@@ -416,27 +424,24 @@ app.delete('/api/documents/:id', authenticateToken, async (req, res) => {
 // ✅ احصائيات المستخدم
 app.get('/api/dashboard/stats', authenticateToken, async (req, res) => {
   try {
-    const totalResult = await pool.query(
-      'SELECT COUNT(*) as total FROM documents WHERE user_id = $1',
-      [req.user.id]
-    );
+    const totalResult = db.prepare(
+      'SELECT COUNT(*) as total FROM documents WHERE user_id = ?'
+    ).get(req.user.id);
 
-    const statusResult = await pool.query(
-      'SELECT status, COUNT(*) as count FROM documents WHERE user_id = $1 GROUP BY status',
-      [req.user.id]
-    );
+    const statusResult = db.prepare(
+      'SELECT status, COUNT(*) as count FROM documents WHERE user_id = ? GROUP BY status'
+    ).all(req.user.id);
 
-    const sizeResult = await pool.query(
-      'SELECT SUM(file_size) as total_size FROM documents WHERE user_id = $1',
-      [req.user.id]
-    );
+    const sizeResult = db.prepare(
+      'SELECT SUM(file_size) as total_size FROM documents WHERE user_id = ?'
+    ).get(req.user.id);
 
     res.json({
       status: '✅ إحصائيات المستخدم',
       stats: {
-        total_documents: totalResult.rows[0].total || 0,
-        by_status: statusResult.rows,
-        total_size: `${((sizeResult.rows[0].total_size || 0) / 1024 / 1024).toFixed(2)} MB`,
+        total_documents: totalResult.total || 0,
+        by_status: statusResult,
+        total_size: `${((sizeResult.total_size || 0) / 1024 / 1024).toFixed(2)} MB`,
       },
     });
   } catch (err) {
@@ -448,9 +453,9 @@ app.get('/api/dashboard/stats', authenticateToken, async (req, res) => {
 });
 
 // ✅ Health Check
-app.get('/api/health', async (req, res) => {
+app.get('/api/health', (req, res) => {
   try {
-    await pool.query('SELECT 1');
+    db.prepare('SELECT 1').get();
     res.json({
       status: '✅ النظام يعمل بشكل طبيعي',
       timestamp: new Date().toISOString(),

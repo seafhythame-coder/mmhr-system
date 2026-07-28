@@ -1,0 +1,21 @@
+# البيئة والإعدادات السرية
+.env
+
+# قاعدة بيانات SQLite
+data/
+
+# المكتبات
+node_modules/
+
+# الملفات المرفوعة
+uploads/
+telegram_uploads/
+processed_files/
+
+# السجلات
+logs/
+*.log
+
+# ملفات النظام
+.DS_Store
+Thumbs.db
