@@ -16,13 +16,19 @@ const __dirname = path.dirname(__filename);
 
 // 🔑 البوت توكن
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN || 'YOUR_TELEGRAM_BOT_TOKEN_HERE';
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:5000';
+const RAW_API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:5000';
+const API_BASE_URL = /^https?:\/\//i.test(RAW_API_BASE_URL) ? RAW_API_BASE_URL : `https://${RAW_API_BASE_URL}`;
 
 // إنشاء البوت
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 
 // 📦 تخزين جلسات المستخدمين
 const userSessions = new Map();
+
+function authHeaders(token) {
+  return { Authorization: 'Bearer ' + token };
+}
+
 
 // ═══════════════════════════════════════════════════════════════════
 // 🎯 أوامر البوت الرئيسية
@@ -150,11 +156,11 @@ bot.onText(/\/documents|📋 مستنداتي/, async (msg) => {
 
   try {
     const response = await axios.get(`${API_BASE_URL}/api/documents`, {
-      headers: { Authorization: `Bearer ${session.token}` }
+      headers: authHeaders(session.token)
     });
 
-    const docs = response.data;
-    if (!docs || docs.length === 0) {
+    const docs = response.data?.documents || [];
+    if (docs.length === 0) {
       bot.sendMessage(chatId, '📭 لا توجد مستندات حالياً');
       return;
     }
@@ -187,24 +193,25 @@ bot.onText(/\/stats|📊 الإحصائيات/, async (msg) => {
 
   try {
     const response = await axios.get(`${API_BASE_URL}/api/dashboard/stats`, {
-      headers: { Authorization: `Bearer ${session.token}` }
+      headers: authHeaders(session.token)
     });
 
-    const stats = response.data;
+    const stats = response.data?.stats || {};
+    const statusMap = Object.fromEntries((stats.by_status || []).map((item) => [item.status, Number(item.count) || 0]));
 
     let statsMessage = `
 📊 **الإحصائيات:**
 
-📄 إجمالي المستندات: ${stats.totalDocuments || 0}
-✅ المعالجة: ${stats.processedDocuments || 0}
-⏳ قيد المعالجة: ${stats.pendingDocuments || 0}
-❌ الأخطاء: ${stats.failedDocuments || 0}
+📄 إجمالي المستندات: ${stats.total_documents || 0}
+✅ المعالجة: ${statusMap.completed || 0}
+⏳ قيد المعالجة: ${statusMap.processing || statusMap.pending || 0}
+❌ الأخطاء: ${statusMap.failed || statusMap.error || 0}
 
 📈 **المعدل:**
-⚡ متوسط الوقت: ${stats.avgProcessingTime || 0} ثانية
+⚡ إجمالي الحجم: ${stats.total_size || '0 MB'}
 
 ---
-💾 إجمالي الملفات المعالجة: ${stats.totalProcessedFiles || 0}
+💾 إجمالي الملفات المعالجة: ${statusMap.completed || 0}
     `;
 
     bot.sendMessage(chatId, statsMessage, { parse_mode: 'Markdown' });
@@ -267,12 +274,12 @@ bot.on('document', async (msg) => {
       {
         headers: {
           ...form.getHeaders(),
-          Authorization: `Bearer ${session.token}`
+          ...authHeaders(session.token)
         }
       }
     );
 
-    const docId = uploadResponse.data.id;
+    const docId = uploadResponse.data.documentId || uploadResponse.data.id;
 
     // إرسال رسالة النجاح
     const successMessage = `
@@ -345,12 +352,12 @@ bot.on('photo', async (msg) => {
       {
         headers: {
           ...form.getHeaders(),
-          Authorization: `Bearer ${session.token}`
+          ...authHeaders(session.token)
         }
       }
     );
 
-    const docId = uploadResponse.data.id;
+    const docId = uploadResponse.data.documentId || uploadResponse.data.id;
 
     bot.sendMessage(chatId, `✅ تم معالجة الصورة!\n🆔 رقم المستند: ${docId}`, {
       parse_mode: 'Markdown'
@@ -374,7 +381,7 @@ bot.on('message', async (msg) => {
   const text = msg.text;
 
   // تجاهل الأوامر
-  if (text.startsWith('/')) return;
+  if (!text || text.startsWith('/')) return;
 
   const session = userSessions.get(chatId);
 
@@ -425,7 +432,7 @@ bot.on('message', async (msg) => {
         bot.sendMessage(chatId, `
 ✅ **تسجيل الدخول ناجح!**
 
-👋 أهلاً بك يا ${loginResponse.data.username}
+👋 أهلاً بك يا ${loginResponse.data.user?.username || 'مستخدم'}
 
 الآن يمكنك:
 📤 رفع الملفات
@@ -470,10 +477,10 @@ async function monitorDocumentProcessing(chatId, docId, token, fileName) {
 
     try {
       const response = await axios.get(`${API_BASE_URL}/api/documents/${docId}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: authHeaders(token)
       });
 
-      const doc = response.data;
+      const doc = response.data?.document || response.data;
 
       if (doc.status === 'completed') {
         clearInterval(checkStatus);
@@ -516,7 +523,7 @@ console.log('\n');
 console.log('╔════════════════════════════════════════════════════════╗');
 console.log('║    🤖 Telegram Bot للنظام MMHR يعمل بنجاح!           ║');
 console.log('╠════════════════════════════════════════════════════════╣');
-console.log('║ 📱 Token: ' + TELEGRAM_TOKEN.substring(0, 20) + '...   ║');
+console.log('║ 📱 Token: [configured]                                ║');
 console.log('║ 🌐 API: ' + API_BASE_URL + '                     ║');
 console.log('║ ⏰ التشغيل: جاري الاستماع للرسائل...                ║');
 console.log('╚════════════════════════════════════════════════════════╝');

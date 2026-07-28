@@ -1,0 +1,53 @@
+services:
+  - type: web
+    name: mmhr-api
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run start:server
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+
+  - type: worker
+    name: mmhr-telegram-bot
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run start:telegram
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_BASE_URL
+        fromService:
+          type: web
+          name: mmhr-api
+          property: host
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+
+  - type: web
+    name: mmhr-whatsapp-bot
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run start:whatsapp
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_BASE_URL
+        fromService:
+          type: web
+          name: mmhr-api
+          property: host
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_WHATSAPP_NUMBER
+        sync: false

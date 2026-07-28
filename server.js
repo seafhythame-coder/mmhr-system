@@ -21,13 +21,21 @@ const upload = multer({ dest: 'uploads/' });
 const { Pool } = pg;
 
 // ✅ قاعدة البيانات
-const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'mmhr_db',
-  password: process.env.DB_PASSWORD || 'password',
-  port: process.env.DB_PORT || 5432,
-});
+const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
+const pool = new Pool(
+  hasDatabaseUrl
+    ? {
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      }
+    : {
+        user: process.env.DB_USER || 'postgres',
+        host: process.env.DB_HOST || 'localhost',
+        database: process.env.DB_NAME || 'mmhr_db',
+        password: process.env.DB_PASSWORD || 'password',
+        port: Number(process.env.DB_PORT) || 5432,
+      }
+);
 
 // ✅ Middleware
 app.use(cors());
@@ -38,7 +46,7 @@ app.use(express.static('public'));
 const SECRET_KEY = process.env.JWT_SECRET || 'mmhr_secret_key_2026';
 
 console.log('\n🔧 إعدادات النظام:');
-console.log(`📊 قاعدة البيانات: ${process.env.DB_NAME || 'mmhr_db'}`);
+console.log(`📊 قاعدة البيانات: ${hasDatabaseUrl ? 'DATABASE_URL' : process.env.DB_NAME || 'mmhr_db'}`);
 console.log(`🌐 البيئة: ${process.env.NODE_ENV || 'development'}\n`);
 
 // ✅ Middleware للتحقق من Token
@@ -526,8 +534,8 @@ app.use((req, res) => {
 // 🚀 تشغيل السيرفر
 // ================================
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+const PORT = Number(process.env.PORT) || 5000;
+app.listen(PORT, '0.0.0.0', () => {
   console.log('\n╔════════════════════════════════════╗');
   console.log('║    ✅ نظام MMHR يعمل بنجاح        ║');
   console.log('╚════════════════════════════════════╝\n');
