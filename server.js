@@ -21,13 +21,20 @@ const upload = multer({ dest: 'uploads/' });
 const { Pool } = pg;
 
 // ✅ قاعدة البيانات
-const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'mmhr_db',
-  password: process.env.DB_PASSWORD || 'password',
-  port: process.env.DB_PORT || 5432,
-});
+const poolConfig = process.env.DATABASE_URL
+  ? {
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    }
+  : {
+      user: process.env.DB_USER || 'postgres',
+      host: process.env.DB_HOST || 'localhost',
+      database: process.env.DB_NAME || 'mmhr_db',
+      password: process.env.DB_PASSWORD || 'password',
+      port: parseInt(process.env.DB_PORT || '5432', 10),
+    };
+
+const pool = new Pool(poolConfig);
 
 // ✅ Middleware
 app.use(cors());
@@ -527,13 +534,22 @@ app.use((req, res) => {
 // ================================
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log('\n╔════════════════════════════════════╗');
   console.log('║    ✅ نظام MMHR يعمل بنجاح        ║');
   console.log('╚════════════════════════════════════╝\n');
   console.log(`🌐 الرابط: http://localhost:${PORT}`);
   console.log(`📡 API: http://localhost:${PORT}/api\n`);
   console.log('💡 نصيحة: استخدم Postman لاختبار الـ APIs\n');
+
+  // ✅ فحص الاتصال بقاعدة البيانات عند بدء التشغيل
+  try {
+    await pool.query('SELECT 1');
+    console.log('✅ قاعدة البيانات متصلة بنجاح\n');
+  } catch (err) {
+    console.error('❌ تعذّر الاتصال بقاعدة البيانات:', err.message);
+    console.error('   تأكد من صحة DATABASE_URL أو إعدادات DB_* في ملف .env\n');
+  }
 });
 
 export default app;
