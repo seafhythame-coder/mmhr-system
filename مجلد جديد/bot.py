@@ -2,6 +2,7 @@ import os
 print("جاري تشغيل البوت الأول وتجهيز المكتبات...")
 os.system('pip install pyTelegramBotAPI')
 import telebot
+
 TOKEN = "8709790066:AAHDQV6ukT27wAKXiOmX_PgVdiuORHk5DMs"
 bot = telebot.TeleBot(TOKEN)
 
