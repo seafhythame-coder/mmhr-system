@@ -14,26 +14,24 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// 🔑 البوت توكن
-const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN || 'YOUR_TELEGRAM_BOT_TOKEN_HERE';
+// 🔑 البوت توكن — يدعم TELEGRAM_TOKEN أو TELEGRAM_BOT_TOKEN
+const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '';
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:5000';
-
-// إنشاء البوت
-const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 
 // 📦 تخزين جلسات المستخدمين
 const userSessions = new Map();
 
 // ═══════════════════════════════════════════════════════════════════
-// 🎯 أوامر البوت الرئيسية
+// 🎯 تسجيل معالجات البوت — تُستدعى من server.js أو عند التشغيل المباشر
 // ═══════════════════════════════════════════════════════════════════
 
-// ✅ كلمة البداية /start
-bot.onText(/\/start/, (msg) => {
-  const chatId = msg.chat.id;
-  const firstName = msg.from.first_name;
+export function registerBotHandlers(bot) {
 
-  const welcomeMessage = `
+  // ✅ كلمة البداية /start
+  bot.onText(/\/start/, (msg) => {
+    const chatId = msg.chat.id;
+
+    const welcomeMessage = `
 👋 مرحباً بك في بوت MMHR الذكي!
 
 أنا هنا لساعدك في معالجة المستندات بسرعة واحترافية.
@@ -52,26 +50,26 @@ bot.onText(/\/start/, (msg) => {
 
 ---
 📞 هل تحتاج مساعدة؟ اكتب /help
-  `;
+    `;
 
-  bot.sendMessage(chatId, welcomeMessage, {
-    parse_mode: 'Markdown',
-    reply_markup: {
-      keyboard: [
-        [{ text: '📤 رفع ملف' }, { text: '📋 مستنداتي' }],
-        [{ text: '📊 الإحصائيات' }, { text: '❓ مساعدة' }],
-        [{ text: '🔓 تسجيل دخول' }, { text: '📝 تسجيل جديد' }]
-      ],
-      resize_keyboard: true
-    }
+    bot.sendMessage(chatId, welcomeMessage, {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        keyboard: [
+          [{ text: '📤 رفع ملف' }, { text: '📋 مستنداتي' }],
+          [{ text: '📊 الإحصائيات' }, { text: '❓ مساعدة' }],
+          [{ text: '🔓 تسجيل دخول' }, { text: '📝 تسجيل جديد' }]
+        ],
+        resize_keyboard: true
+      }
+    });
   });
-});
 
-// ❓ /help - المساعدة
-bot.onText(/\/help|❓ مساعدة/, (msg) => {
-  const chatId = msg.chat.id;
+  // ❓ /help - المساعدة
+  bot.onText(/\/help|❓ مساعدة/, (msg) => {
+    const chatId = msg.chat.id;
 
-  const helpMessage = `
+    const helpMessage = `
 🎯 **دليل الاستخدام**
 
 **1️⃣ تسجيل حساب:**
@@ -107,175 +105,165 @@ bot.onText(/\/help|❓ مساعدة/, (msg) => {
 
 ❓ **هل لديك سؤال؟**
 تواصل معنا: /support
-  `;
+    `;
 
-  bot.sendMessage(chatId, helpMessage, {
-    parse_mode: 'Markdown'
-  });
-});
-
-// 📝 /register - التسجيل
-bot.onText(/\/register|📝 تسجيل جديد/, (msg) => {
-  const chatId = msg.chat.id;
-
-  bot.sendMessage(chatId, '📝 **التسجيل في النظام**\n\nأرسل اسم المستخدم الخاص بك:', {
-    parse_mode: 'Markdown'
-  });
-
-  userSessions.set(chatId, { step: 'username' });
-});
-
-// 🔓 /login - تسجيل الدخول
-bot.onText(/\/login|🔓 تسجيل دخول/, (msg) => {
-  const chatId = msg.chat.id;
-
-  bot.sendMessage(chatId, '🔓 **تسجيل الدخول**\n\nأرسل بريدك الإلكتروني:', {
-    parse_mode: 'Markdown'
-  });
-
-  userSessions.set(chatId, { step: 'email' });
-});
-
-// 📋 /documents - عرض المستندات
-bot.onText(/\/documents|📋 مستنداتي/, async (msg) => {
-  const chatId = msg.chat.id;
-  const session = userSessions.get(chatId);
-
-  if (!session || !session.token) {
-    bot.sendMessage(chatId, '❌ يجب تسجيل الدخول أولاً\n/login', {
+    bot.sendMessage(chatId, helpMessage, {
       parse_mode: 'Markdown'
     });
-    return;
-  }
+  });
 
-  try {
-    const response = await axios.get(`${API_BASE_URL}/api/documents`, {
-      headers: { Authorization: `Bearer ${session.token}` }
+  // 📝 /register - التسجيل
+  bot.onText(/\/register|📝 تسجيل جديد/, (msg) => {
+    const chatId = msg.chat.id;
+
+    bot.sendMessage(chatId, '📝 **التسجيل في النظام**\n\nأرسل اسم المستخدم الخاص بك:', {
+      parse_mode: 'Markdown'
     });
 
-    const docs = response.data;
-    if (!docs || docs.length === 0) {
-      bot.sendMessage(chatId, '📭 لا توجد مستندات حالياً');
+    userSessions.set(chatId, { step: 'username' });
+  });
+
+  // 🔓 /login - تسجيل الدخول
+  bot.onText(/\/login|🔓 تسجيل دخول/, (msg) => {
+    const chatId = msg.chat.id;
+
+    bot.sendMessage(chatId, '🔓 **تسجيل الدخول**\n\nأرسل بريدك الإلكتروني:', {
+      parse_mode: 'Markdown'
+    });
+
+    userSessions.set(chatId, { step: 'email' });
+  });
+
+  // 📋 /documents - عرض المستندات
+  bot.onText(/\/documents|📋 مستنداتي/, async (msg) => {
+    const chatId = msg.chat.id;
+    const session = userSessions.get(chatId);
+
+    if (!session || !session.token) {
+      bot.sendMessage(chatId, '❌ يجب تسجيل الدخول أولاً\n/login', {
+        parse_mode: 'Markdown'
+      });
       return;
     }
 
-    let message = '📋 **مستنداتك:**\n\n';
-    docs.forEach((doc, index) => {
-      message += `${index + 1}. ${doc.file_name}\n`;
-      message += `   📊 الحالة: ${doc.status}\n`;
-      message += `   📅 التاريخ: ${new Date(doc.created_at).toLocaleDateString('ar-EG')}\n\n`;
-    });
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/documents`, {
+        headers: { Authorization: `Bearer ${session.token}` }
+      });
 
-    bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
-  } catch (error) {
-    bot.sendMessage(chatId, '❌ حدث خطأ في جلب المستندات');
-    console.error('Error fetching documents:', error.message);
-  }
-});
+      const docs = response.data.documents || response.data;
+      if (!docs || docs.length === 0) {
+        bot.sendMessage(chatId, '📭 لا توجد مستندات حالياً');
+        return;
+      }
 
-// 📊 /stats - الإحصائيات
-bot.onText(/\/stats|📊 الإحصائيات/, async (msg) => {
-  const chatId = msg.chat.id;
-  const session = userSessions.get(chatId);
+      let message = '📋 **مستنداتك:**\n\n';
+      docs.forEach((doc, index) => {
+        message += `${index + 1}. ${doc.file_name}\n`;
+        message += `   📊 الحالة: ${doc.status}\n`;
+        message += `   📅 التاريخ: ${new Date(doc.created_at).toLocaleDateString('ar-EG')}\n\n`;
+      });
 
-  if (!session || !session.token) {
-    bot.sendMessage(chatId, '❌ يجب تسجيل الدخول أولاً\n/login', {
-      parse_mode: 'Markdown'
-    });
-    return;
-  }
+      bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+    } catch (error) {
+      bot.sendMessage(chatId, '❌ حدث خطأ في جلب المستندات');
+      console.error('Error fetching documents:', error.message);
+    }
+  });
 
-  try {
-    const response = await axios.get(`${API_BASE_URL}/api/dashboard/stats`, {
-      headers: { Authorization: `Bearer ${session.token}` }
-    });
+  // 📊 /stats - الإحصائيات
+  bot.onText(/\/stats|📊 الإحصائيات/, async (msg) => {
+    const chatId = msg.chat.id;
+    const session = userSessions.get(chatId);
 
-    const stats = response.data;
-
-    let statsMessage = `
-📊 **الإحصائيات:**
-
-📄 إجمالي المستندات: ${stats.totalDocuments || 0}
-✅ المعالجة: ${stats.processedDocuments || 0}
-⏳ قيد المعالجة: ${stats.pendingDocuments || 0}
-❌ الأخطاء: ${stats.failedDocuments || 0}
-
-📈 **المعدل:**
-⚡ متوسط الوقت: ${stats.avgProcessingTime || 0} ثانية
-
----
-💾 إجمالي الملفات المعالجة: ${stats.totalProcessedFiles || 0}
-    `;
-
-    bot.sendMessage(chatId, statsMessage, { parse_mode: 'Markdown' });
-  } catch (error) {
-    bot.sendMessage(chatId, '❌ حدث خطأ في جلب الإحصائيات');
-    console.error('Error fetching stats:', error.message);
-  }
-});
-
-// ═══════════════════════════════════════════════════════════════════
-// 📥 معالجة الملفات والرسائل النصية
-// ═══════════════════════════════════════════════════════════════════
-
-// معالجة الملفات
-bot.on('document', async (msg) => {
-  const chatId = msg.chat.id;
-  const session = userSessions.get(chatId);
-
-  if (!session || !session.token) {
-    bot.sendMessage(chatId, '❌ يجب تسجيل الدخول أولاً\n/login', {
-      parse_mode: 'Markdown'
-    });
-    return;
-  }
-
-  const fileId = msg.document.file_id;
-  const fileName = msg.document.file_name;
-
-  try {
-    bot.sendMessage(chatId, '⏳ جاري تحميل الملف...');
-
-    // الحصول على رابط الملف
-    const fileUrl = await bot.getFileLink(fileId);
-
-    // تحميل الملف
-    const fileResponse = await axios.get(fileUrl, { responseType: 'stream' });
-
-    // حفظ الملف مؤقتاً
-    const uploadsDir = path.join(__dirname, 'telegram_uploads');
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
+    if (!session || !session.token) {
+      bot.sendMessage(chatId, '❌ يجب تسجيل الدخول أولاً\n/login', {
+        parse_mode: 'Markdown'
+      });
+      return;
     }
 
-    const filePath = path.join(uploadsDir, fileName);
-    await new Promise((resolve, reject) => {
-      fileResponse.data.pipe(fs.createWriteStream(filePath))
-        .on('finish', resolve)
-        .on('error', reject);
-    });
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/dashboard/stats`, {
+        headers: { Authorization: `Bearer ${session.token}` }
+      });
 
-    bot.sendMessage(chatId, '⏳ جاري معالجة الملف...');
+      const stats = response.data.stats || response.data;
 
-    // رفع الملف إلى API
-    const form = new FormData();
-    form.append('file', fs.createReadStream(filePath));
+      let statsMessage = `
+📊 **الإحصائيات:**
 
-    const uploadResponse = await axios.post(
-      `${API_BASE_URL}/api/documents/upload`,
-      form,
-      {
-        headers: {
-          ...form.getHeaders(),
-          Authorization: `Bearer ${session.token}`
-        }
+📄 إجمالي المستندات: ${stats.total_documents || stats.totalDocuments || 0}
+✅ المعالجة: ${stats.completed || stats.processedDocuments || 0}
+⏳ قيد المعالجة: ${stats.pending || stats.pendingDocuments || 0}
+❌ الأخطاء: ${stats.error || stats.failedDocuments || 0}
+
+💾 إجمالي الحجم: ${stats.total_size || '0 MB'}
+      `;
+
+      bot.sendMessage(chatId, statsMessage, { parse_mode: 'Markdown' });
+    } catch (error) {
+      bot.sendMessage(chatId, '❌ حدث خطأ في جلب الإحصائيات');
+      console.error('Error fetching stats:', error.message);
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════
+  // 📥 معالجة الملفات والرسائل النصية
+  // ═══════════════════════════════════════════════════════════════════
+
+  // معالجة الملفات
+  bot.on('document', async (msg) => {
+    const chatId = msg.chat.id;
+    const session = userSessions.get(chatId);
+
+    if (!session || !session.token) {
+      bot.sendMessage(chatId, '❌ يجب تسجيل الدخول أولاً\n/login', {
+        parse_mode: 'Markdown'
+      });
+      return;
+    }
+
+    const fileId = msg.document.file_id;
+    const fileName = msg.document.file_name;
+
+    try {
+      bot.sendMessage(chatId, '⏳ جاري تحميل الملف...');
+
+      const fileUrl = await bot.getFileLink(fileId);
+      const fileResponse = await axios.get(fileUrl, { responseType: 'stream' });
+
+      const uploadsDir = path.join(__dirname, 'telegram_uploads');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
       }
-    );
 
-    const docId = uploadResponse.data.id;
+      const filePath = path.join(uploadsDir, fileName);
+      await new Promise((resolve, reject) => {
+        fileResponse.data.pipe(fs.createWriteStream(filePath))
+          .on('finish', resolve)
+          .on('error', reject);
+      });
 
-    // إرسال رسالة النجاح
-    const successMessage = `
+      bot.sendMessage(chatId, '⏳ جاري معالجة الملف...');
+
+      const form = new FormData();
+      form.append('file', fs.createReadStream(filePath));
+
+      const uploadResponse = await axios.post(
+        `${API_BASE_URL}/api/documents/upload`,
+        form,
+        {
+          headers: {
+            ...form.getHeaders(),
+            Authorization: `Bearer ${session.token}`,
+          }
+        }
+      );
+
+      const docId = uploadResponse.data.documentId || uploadResponse.data.id;
+
+      const successMessage = `
 ✅ **تم الرفع بنجاح!**
 
 📄 الملف: ${fileName}
@@ -283,149 +271,138 @@ bot.on('document', async (msg) => {
 🔔 سيتم إخطارك عند الانتهاء
 
 🆔 رقم المستند: ${docId}
-    `;
+      `;
 
-    bot.sendMessage(chatId, successMessage, { parse_mode: 'Markdown' });
+      bot.sendMessage(chatId, successMessage, { parse_mode: 'Markdown' });
 
-    // مراقبة حالة المعالجة
-    monitorDocumentProcessing(chatId, docId, session.token, fileName);
+      monitorDocumentProcessing(bot, chatId, docId, session.token, fileName);
 
-    // حذف الملف المؤقت
-    fs.unlink(filePath, (err) => {
-      if (err) console.error('Error deleting temp file:', err);
-    });
+      fs.unlink(filePath, (err) => {
+        if (err) console.error('Error deleting temp file:', err);
+      });
 
-  } catch (error) {
-    console.error('Error processing file:', error);
-    bot.sendMessage(chatId, `❌ حدث خطأ: ${error.response?.data?.error || error.message}`);
-  }
-});
+    } catch (error) {
+      console.error('Error processing file:', error);
+      bot.sendMessage(chatId, `❌ حدث خطأ: ${error.response?.data?.error || error.message}`);
+    }
+  });
 
-// معالجة الصور
-bot.on('photo', async (msg) => {
-  const chatId = msg.chat.id;
-  const session = userSessions.get(chatId);
+  // معالجة الصور
+  bot.on('photo', async (msg) => {
+    const chatId = msg.chat.id;
+    const session = userSessions.get(chatId);
 
-  if (!session || !session.token) {
-    bot.sendMessage(chatId, '❌ يجب تسجيل الدخول أولاً\n/login', {
-      parse_mode: 'Markdown'
-    });
-    return;
-  }
-
-  const fileId = msg.photo[msg.photo.length - 1].file_id;
-
-  try {
-    bot.sendMessage(chatId, '⏳ جاري معالجة الصورة...');
-
-    const fileUrl = await bot.getFileLink(fileId);
-    const fileResponse = await axios.get(fileUrl, { responseType: 'stream' });
-
-    const uploadsDir = path.join(__dirname, 'telegram_uploads');
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
+    if (!session || !session.token) {
+      bot.sendMessage(chatId, '❌ يجب تسجيل الدخول أولاً\n/login', {
+        parse_mode: 'Markdown'
+      });
+      return;
     }
 
-    const fileName = `photo_${Date.now()}.jpg`;
-    const filePath = path.join(uploadsDir, fileName);
+    const fileId = msg.photo[msg.photo.length - 1].file_id;
 
-    await new Promise((resolve, reject) => {
-      fileResponse.data.pipe(fs.createWriteStream(filePath))
-        .on('finish', resolve)
-        .on('error', reject);
-    });
-
-    // رفع الصورة
-    const form = new FormData();
-    form.append('file', fs.createReadStream(filePath));
-
-    const uploadResponse = await axios.post(
-      `${API_BASE_URL}/api/documents/upload`,
-      form,
-      {
-        headers: {
-          ...form.getHeaders(),
-          Authorization: `Bearer ${session.token}`
-        }
-      }
-    );
-
-    const docId = uploadResponse.data.id;
-
-    bot.sendMessage(chatId, `✅ تم معالجة الصورة!\n🆔 رقم المستند: ${docId}`, {
-      parse_mode: 'Markdown'
-    });
-
-    monitorDocumentProcessing(chatId, docId, session.token, 'photo');
-
-    fs.unlink(filePath, (err) => {
-      if (err) console.error('Error deleting temp file:', err);
-    });
-
-  } catch (error) {
-    console.error('Error processing photo:', error);
-    bot.sendMessage(chatId, `❌ حدث خطأ في معالجة الصورة`);
-  }
-});
-
-// معالجة الرسائل النصية
-bot.on('message', async (msg) => {
-  const chatId = msg.chat.id;
-  const text = msg.text;
-
-  // تجاهل الأوامر
-  if (text.startsWith('/')) return;
-
-  const session = userSessions.get(chatId);
-
-  // معالجة خطوات التسجيل والدخول
-  if (session?.step === 'username') {
-    session.username = text;
-    session.step = 'email';
-    bot.sendMessage(chatId, '📧 الآن أرسل بريدك الإلكتروني:');
-    return;
-  }
-
-  if (session?.step === 'email' && !session.token) {
-    session.email = text;
-    session.step = 'password';
-    bot.sendMessage(chatId, '🔐 أرسل كلمة المرور:');
-    return;
-  }
-
-  if (session?.step === 'password' && !session.token) {
     try {
-      // إذا كان لدينا username، هذا تسجيل جديد
-      if (session.username) {
-        // تسجيل حساب جديد
-        const registerResponse = await axios.post(
-          `${API_BASE_URL}/api/auth/register`,
-          {
+      bot.sendMessage(chatId, '⏳ جاري معالجة الصورة...');
+
+      const fileUrl = await bot.getFileLink(fileId);
+      const fileResponse = await axios.get(fileUrl, { responseType: 'stream' });
+
+      const uploadsDir = path.join(__dirname, 'telegram_uploads');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+
+      const fileName = `photo_${Date.now()}.jpg`;
+      const filePath = path.join(uploadsDir, fileName);
+
+      await new Promise((resolve, reject) => {
+        fileResponse.data.pipe(fs.createWriteStream(filePath))
+          .on('finish', resolve)
+          .on('error', reject);
+      });
+
+      const form = new FormData();
+      form.append('file', fs.createReadStream(filePath));
+
+      const uploadResponse = await axios.post(
+        `${API_BASE_URL}/api/documents/upload`,
+        form,
+        {
+          headers: {
+            ...form.getHeaders(),
+            Authorization: `Bearer ${session.token}`,
+          }
+        }
+      );
+
+      const docId = uploadResponse.data.documentId || uploadResponse.data.id;
+
+      bot.sendMessage(chatId, `✅ تم معالجة الصورة!\n🆔 رقم المستند: ${docId}`, {
+        parse_mode: 'Markdown'
+      });
+
+      monitorDocumentProcessing(bot, chatId, docId, session.token, 'photo');
+
+      fs.unlink(filePath, (err) => {
+        if (err) console.error('Error deleting temp file:', err);
+      });
+
+    } catch (error) {
+      console.error('Error processing photo:', error);
+      bot.sendMessage(chatId, `❌ حدث خطأ في معالجة الصورة`);
+    }
+  });
+
+  // معالجة الرسائل النصية
+  bot.on('message', async (msg) => {
+    const chatId = msg.chat.id;
+    const text = msg.text;
+
+    if (!text || text.startsWith('/')) return;
+
+    const session = userSessions.get(chatId) || {};
+
+    if (session.step === 'username') {
+      session.username = text;
+      session.step = 'email';
+      userSessions.set(chatId, session);
+      bot.sendMessage(chatId, '📧 الآن أرسل بريدك الإلكتروني:');
+      return;
+    }
+
+    if (session.step === 'email' && !session.token) {
+      session.email = text;
+      session.step = 'password';
+      userSessions.set(chatId, session);
+      bot.sendMessage(chatId, '🔐 أرسل كلمة المرور:');
+      return;
+    }
+
+    if (session.step === 'password' && !session.token) {
+      try {
+        if (session.username) {
+          await axios.post(`${API_BASE_URL}/api/auth/register`, {
             username: session.username,
             email: session.email,
             password: text
-          }
-        );
+          });
 
-        bot.sendMessage(chatId, '✅ تم التسجيل بنجاح!\n\nالآن سجل دخولك: /login');
-        userSessions.delete(chatId);
-      } else {
-        // تسجيل دخول
-        const loginResponse = await axios.post(
-          `${API_BASE_URL}/api/auth/login`,
-          {
+          bot.sendMessage(chatId, '✅ تم التسجيل بنجاح!\n\nالآن سجل دخولك: /login');
+          userSessions.delete(chatId);
+        } else {
+          const loginResponse = await axios.post(`${API_BASE_URL}/api/auth/login`, {
             email: session.email,
             password: text
-          }
-        );
+          });
 
-        session.token = loginResponse.data.token;
-        session.step = null;
+          session.token = loginResponse.data.token;
+          session.step = null;
+          userSessions.set(chatId, session);
 
-        bot.sendMessage(chatId, `
+          bot.sendMessage(chatId, `
 ✅ **تسجيل الدخول ناجح!**
 
-👋 أهلاً بك يا ${loginResponse.data.username}
+👋 أهلاً بك يا ${loginResponse.data.user?.username || ''}
 
 الآن يمكنك:
 📤 رفع الملفات
@@ -433,31 +410,49 @@ bot.on('message', async (msg) => {
 📊 مشاهدة الإحصائيات
 
 🎯 ماذا تريد أن تفعل؟
-        `, {
-          parse_mode: 'Markdown',
-          reply_markup: {
-            keyboard: [
-              [{ text: '📤 رفع ملف' }, { text: '📋 مستنداتي' }],
-              [{ text: '📊 الإحصائيات' }]
-            ],
-            resize_keyboard: true
-          }
-        });
+          `, {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              keyboard: [
+                [{ text: '📤 رفع ملف' }, { text: '📋 مستنداتي' }],
+                [{ text: '📊 الإحصائيات' }]
+              ],
+              resize_keyboard: true
+            }
+          });
+        }
+      } catch (error) {
+        bot.sendMessage(chatId, `❌ خطأ: ${error.response?.data?.error || error.message}`);
+        userSessions.delete(chatId);
       }
-    } catch (error) {
-      bot.sendMessage(chatId, `❌ خطأ: ${error.response?.data?.error || error.message}`);
-      userSessions.delete(chatId);
+      return;
     }
-  }
-});
+
+    // رسائل عادية
+    if (!session.step) {
+      bot.sendMessage(chatId, `
+🤖 **أوامر مفيدة:**
+
+📝 /register - التسجيل
+🔓 /login - تسجيل الدخول
+📋 /documents - مستنداتي
+📊 /stats - الإحصائيات
+❓ /help - المساعدة
+
+💡 أو أرسل ملف مباشرة!
+      `, { parse_mode: 'Markdown' });
+    }
+  });
+
+} // end registerBotHandlers
 
 // ═══════════════════════════════════════════════════════════════════
 // 📊 مراقبة معالجة المستندات
 // ═══════════════════════════════════════════════════════════════════
 
-async function monitorDocumentProcessing(chatId, docId, token, fileName) {
+function monitorDocumentProcessing(bot, chatId, docId, token, fileName) {
   let attempts = 0;
-  const maxAttempts = 120; // 10 دقائق (كل 5 ثواني)
+  const maxAttempts = 120;
 
   const checkStatus = setInterval(async () => {
     attempts++;
@@ -473,7 +468,7 @@ async function monitorDocumentProcessing(chatId, docId, token, fileName) {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      const doc = response.data;
+      const doc = response.data.document || response.data;
 
       if (doc.status === 'completed') {
         clearInterval(checkStatus);
@@ -505,30 +500,52 @@ async function monitorDocumentProcessing(chatId, docId, token, fileName) {
     } catch (error) {
       console.error('Error checking document status:', error.message);
     }
-  }, 5000); // فحص كل 5 ثواني
+  }, 5000);
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// 🚀 بدء البوت
+// 🚀 تشغيل مباشر (node telegram-bot.js)
 // ═══════════════════════════════════════════════════════════════════
 
-console.log('\n');
-console.log('╔════════════════════════════════════════════════════════╗');
-console.log('║    🤖 Telegram Bot للنظام MMHR يعمل بنجاح!           ║');
-console.log('╠════════════════════════════════════════════════════════╣');
-console.log('║ 📱 Token: ' + TELEGRAM_TOKEN.substring(0, 20) + '...   ║');
-console.log('║ 🌐 API: ' + API_BASE_URL + '                     ║');
-console.log('║ ⏰ التشغيل: جاري الاستماع للرسائل...                ║');
-console.log('╚════════════════════════════════════════════════════════╝');
-console.log('\n');
+const isMainModule = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(__filename);
 
-// معالجة الأخطاء
-bot.on('polling_error', (error) => {
-  console.error('❌ Polling Error:', error.message);
-});
+if (isMainModule) {
+  if (!TELEGRAM_TOKEN) {
+    console.error('❌ لم يتم تعيين TELEGRAM_TOKEN أو TELEGRAM_BOT_TOKEN');
+    process.exit(1);
+  }
 
-process.on('unhandledRejection', (error) => {
-  console.error('❌ Unhandled Rejection:', error.message);
-});
+  const bot = new TelegramBot(TELEGRAM_TOKEN);
+  registerBotHandlers(bot);
 
-export default bot;
+  const webhookUrl = process.env.TELEGRAM_WEBHOOK_URL;
+  const isValidWebhook = webhookUrl && webhookUrl !== 'https://onrender.com' && webhookUrl.startsWith('https://');
+
+  if (isValidWebhook) {
+    const fullUrl = `${webhookUrl.replace(/\/$/, '')}/api/telegram/webhook`;
+    bot.setWebHook(fullUrl)
+      .then(() => console.log(`✅ Telegram Webhook: ${fullUrl}`))
+      .catch((err) => {
+        console.error(`❌ فشل إعداد Webhook: ${err.message} — سيستخدم polling`);
+        bot.deleteWebHook().then(() => bot.startPolling({ restart: true }));
+      });
+  } else {
+    bot.startPolling({ restart: true });
+    console.log('✅ Telegram Bot: بدأ الاستماع (polling)');
+  }
+
+  bot.on('polling_error', (error) => {
+    console.error('❌ Polling Error:', error.message);
+  });
+
+  process.on('unhandledRejection', (error) => {
+    console.error('❌ Unhandled Rejection:', error.message);
+  });
+
+  console.log('\n╔════════════════════════════════════════════════════════╗');
+  console.log('║    🤖 Telegram Bot للنظام MMHR يعمل بنجاح!           ║');
+  console.log('╠════════════════════════════════════════════════════════╣');
+  console.log('║ 📱 Token: ' + TELEGRAM_TOKEN.substring(0, 20) + '...              ║');
+  console.log('║ 🌐 API: ' + API_BASE_URL + '                     ║');
+  console.log('╚════════════════════════════════════════════════════════╝\n');
+}

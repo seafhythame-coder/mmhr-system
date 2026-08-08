@@ -20,14 +20,21 @@ const app = express();
 const upload = multer({ dest: 'uploads/' });
 const { Pool } = pg;
 
-// ✅ قاعدة البيانات
-const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'mmhr_db',
-  password: process.env.DB_PASSWORD || 'password',
-  port: process.env.DB_PORT || 5432,
-});
+// ✅ قاعدة البيانات - يدعم DATABASE_URL (Render) أو الإعدادات الفردية
+const pool = new Pool(
+  process.env.DATABASE_URL
+    ? {
+        connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false },
+      }
+    : {
+        user: process.env.DB_USER || 'postgres',
+        host: process.env.DB_HOST || 'localhost',
+        database: process.env.DB_NAME || 'mmhr_db',
+        password: process.env.DB_PASSWORD || 'password',
+        port: parseInt(process.env.DB_PORT || '5432'),
+      }
+);
 
 // ✅ Middleware
 app.use(cors());
@@ -38,7 +45,7 @@ app.use(express.static('public'));
 const SECRET_KEY = process.env.JWT_SECRET || 'mmhr_secret_key_2026';
 
 console.log('\n🔧 إعدادات النظام:');
-console.log(`📊 قاعدة البيانات: ${process.env.DB_NAME || 'mmhr_db'}`);
+console.log(`📊 قاعدة البيانات: ${process.env.DATABASE_URL ? 'DATABASE_URL (Render PostgreSQL)' : process.env.DB_NAME || 'mmhr_db'}`);
 console.log(`🌐 البيئة: ${process.env.NODE_ENV || 'development'}\n`);
 
 // ✅ Middleware للتحقق من Token
@@ -464,6 +471,70 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+// ✅ Diagnostic Endpoint - فحص شامل للنظام (يتطلب تسجيل دخول)
+app.get('/api/diagnostic', authenticateToken, async (req, res) => {
+  const results = {
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    checks: {},
+  };
+
+  // فحص قاعدة البيانات
+  try {
+    const dbResult = await pool.query('SELECT NOW() as time, version() as version');
+    results.checks.database = {
+      status: '✅ متصل',
+      time: dbResult.rows[0].time,
+      version: dbResult.rows[0].version.split(' ').slice(0, 2).join(' '),
+      using: process.env.DATABASE_URL ? 'DATABASE_URL' : 'DB_* variables',
+    };
+  } catch (err) {
+    results.checks.database = { status: '❌ فشل الاتصال', error: err.message };
+  }
+
+  // فحص الجداول
+  try {
+    const tablesResult = await pool.query(
+      "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name"
+    );
+    results.checks.tables = {
+      status: tablesResult.rows.length > 0 ? '✅ موجودة' : '⚠️ لا توجد جداول',
+      tables: tablesResult.rows.map((r) => r.table_name),
+    };
+  } catch (err) {
+    results.checks.tables = { status: '❌ خطأ', error: err.message };
+  }
+
+  // فحص المتغيرات البيئية
+  const telegramToken = process.env.TELEGRAM_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '';
+  results.checks.env = {
+    DATABASE_URL: process.env.DATABASE_URL ? '✅ مضبوط' : '❌ غير موجود',
+    JWT_SECRET: process.env.JWT_SECRET ? '✅ مضبوط' : '⚠️ يستخدم الافتراضي',
+    TELEGRAM_TOKEN: telegramToken && !telegramToken.includes('YOUR_') ? '✅ مضبوط' : '❌ غير مضبوط',
+    TELEGRAM_WEBHOOK_URL: process.env.TELEGRAM_WEBHOOK_URL ? `✅ ${process.env.TELEGRAM_WEBHOOK_URL}` : '⚠️ غير مضبوط (سيستخدم polling)',
+    WHATSAPP_TOKEN: process.env.WHATSAPP_TOKEN ? '✅ مضبوط' : '❌ غير موجود',
+    NODE_ENV: process.env.NODE_ENV || 'development',
+  };
+
+  const hasErrors = Object.values(results.checks).some(
+    (c) => typeof c === 'object' && c.status && c.status.startsWith('❌')
+  );
+
+  res.status(hasErrors ? 500 : 200).json(results);
+});
+
+// ✅ Telegram Webhook Endpoint
+app.post('/api/telegram/webhook', (req, res) => {
+  res.sendStatus(200);
+  if (global.telegramBot) {
+    try {
+      global.telegramBot.processUpdate(req.body);
+    } catch (err) {
+      console.error('❌ خطأ في معالجة Telegram update:', err.message);
+    }
+  }
+});
+
 // ✅ الصفحة الرئيسية
 app.get('/', (req, res) => {
   res.send(`
@@ -527,13 +598,52 @@ app.use((req, res) => {
 // ================================
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log('\n╔════════════════════════════════════╗');
   console.log('║    ✅ نظام MMHR يعمل بنجاح        ║');
   console.log('╚════════════════════════════════════╝\n');
   console.log(`🌐 الرابط: http://localhost:${PORT}`);
   console.log(`📡 API: http://localhost:${PORT}/api\n`);
   console.log('💡 نصيحة: استخدم Postman لاختبار الـ APIs\n');
+
+  // ✅ تحقق من الاتصال بقاعدة البيانات
+  try {
+    await pool.query('SELECT 1');
+    console.log('✅ قاعدة البيانات متصلة بنجاح');
+  } catch (err) {
+    console.error('❌ فشل الاتصال بقاعدة البيانات:', err.message);
+    console.error('💡 تأكد من إعداد DATABASE_URL في متغيرات البيئة');
+  }
+
+  // ✅ تشغيل بوت Telegram
+  const telegramToken = process.env.TELEGRAM_TOKEN || process.env.TELEGRAM_BOT_TOKEN || '';
+  if (telegramToken && !telegramToken.includes('YOUR_')) {
+    try {
+      const { default: TelegramBot } = await import('node-telegram-bot-api');
+      const bot = new TelegramBot(telegramToken);
+
+      // تسجيل معالجات الأحداث
+      const { registerBotHandlers } = await import('./telegram-bot.js');
+      registerBotHandlers(bot);
+
+      global.telegramBot = bot;
+
+      const webhookUrl = process.env.TELEGRAM_WEBHOOK_URL;
+      if (webhookUrl && webhookUrl !== 'https://onrender.com') {
+        const fullWebhookUrl = `${webhookUrl.replace(/\/$/, '')}/api/telegram/webhook`;
+        await bot.setWebHook(fullWebhookUrl);
+        console.log(`✅ Telegram Webhook: ${fullWebhookUrl}`);
+      } else {
+        await bot.deleteWebHook();
+        bot.startPolling({ restart: true });
+        console.log('✅ Telegram Bot: بدأ الاستماع (polling)');
+      }
+    } catch (err) {
+      console.error('❌ فشل تشغيل Telegram Bot:', err.message);
+    }
+  } else {
+    console.warn('⚠️ TELEGRAM_TOKEN غير مضبوط — بوت Telegram لن يعمل');
+  }
 });
 
 export default app;
