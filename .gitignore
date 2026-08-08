@@ -1,0 +1,28 @@
+# ملفات البيئة (تحتوي على أسرار - لا ترفعها إلى Git)
+.env
+.env.local
+.env.production
+
+# مجلدات التبعيات
+node_modules/
+
+# مجلدات الرفع المؤقتة
+uploads/
+telegram_uploads/
+whatsapp_uploads/
+
+# ملفات النظام
+.DS_Store
+Thumbs.db
+
+# ملفات السجلات
+*.log
+npm-debug.log*
+
+# ملفات البناء
+dist/
+build/
+
+# ملفات المؤقتة
+tmp/
+temp/

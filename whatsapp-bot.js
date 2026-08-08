@@ -17,12 +17,19 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // 🔧 إعدادات Twilio
-const ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || 'YOUR_ACCOUNT_SID';
-const AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || 'YOUR_AUTH_TOKEN';
+const ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || '';
+const AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || '';
 const WHATSAPP_NUMBER = process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886';
+const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN || '';
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:5000';
 
-const client = twilio(ACCOUNT_SID, AUTH_TOKEN);
+// التحقق من توفر إعدادات Twilio
+const twilioEnabled = Boolean(ACCOUNT_SID && AUTH_TOKEN);
+if (!twilioEnabled) {
+  console.warn('⚠️ TWILIO_ACCOUNT_SID أو TWILIO_AUTH_TOKEN غير محددين - إرسال رسائل WhatsApp معطل');
+}
+
+const client = twilioEnabled ? twilio(ACCOUNT_SID, AUTH_TOKEN) : null;
 
 // إنشاء Express app
 const app = express();
@@ -459,6 +466,10 @@ function sendHelpMessage(senderNumber) {
 }
 
 function sendMessage(to, message) {
+  if (!client) {
+    console.warn(`⚠️ WhatsApp غير مفعل - الرسالة لـ ${to}: ${message.substring(0, 50)}...`);
+    return;
+  }
   client.messages.create({
     from: WHATSAPP_NUMBER,
     to: to,
