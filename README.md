@@ -28,6 +28,32 @@
 
 ---
 
+## ☁️ Deploy مباشر على Render
+
+المشروع أصبح جاهز للنشر عبر `render.yaml` (API + Telegram + WhatsApp).
+
+### 1) ارفع المشروع إلى GitHub
+### 2) في Render اختر **Blueprint** ثم اختر نفس المستودع
+### 3) أضف المتغيرات السرّية التالية:
+
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `TELEGRAM_BOT_TOKEN`
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_WHATSAPP_NUMBER`
+  - أو البدائل: `WHATSAPP_ACCOUNT_SID`, `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER`
+
+### 4) نفّذ التشخيص بعد النشر:
+
+```bash
+npm run diagnostic
+```
+
+> نسخة المتغيرات موجودة في `.env.example` بدون أي أسرار.
+
+---
+
 ## 🚀 خطوات التثبيت السريع
 
 ### 1️⃣ إنشاء مجلد المشروع

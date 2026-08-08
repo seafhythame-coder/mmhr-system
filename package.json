@@ -6,11 +6,15 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
+    "start:server": "node server.js",
+    "start:telegram": "node telegram-bot.js",
+    "start:whatsapp": "node whatsapp-bot.js",
     "dev": "nodemon server.js",
     "setup": "node setup.js",
     "telegram": "node telegram-bot.js",
     "whatsapp": "node whatsapp-bot.js",
-    "bots": "concurrently \"npm start\" \"npm run telegram\" \"npm run whatsapp\""
+    "bots": "concurrently \"npm run start:server\" \"npm run start:telegram\" \"npm run start:whatsapp\"",
+    "diagnostic": "node diagnostic.js"
   },
   "keywords": [
     "document-processing",

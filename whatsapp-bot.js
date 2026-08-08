@@ -17,22 +17,27 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // 🔧 إعدادات Twilio
-const ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || 'YOUR_ACCOUNT_SID';
-const AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || 'YOUR_AUTH_TOKEN';
-const WHATSAPP_NUMBER = process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886';
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:5000';
+const ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || process.env.WHATSAPP_ACCOUNT_SID || 'YOUR_ACCOUNT_SID';
+const AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || process.env.WHATSAPP_TOKEN || 'YOUR_AUTH_TOKEN';
+const WHATSAPP_NUMBER = process.env.TWILIO_WHATSAPP_NUMBER || process.env.WHATSAPP_PHONE_NUMBER || 'whatsapp:+14155238886';
+const RAW_API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:5000';
+const API_BASE_URL = /^https?:\/\//i.test(RAW_API_BASE_URL) ? RAW_API_BASE_URL : `https://${RAW_API_BASE_URL}`;
 
 const client = twilio(ACCOUNT_SID, AUTH_TOKEN);
 
 // إنشاء Express app
 const app = express();
-const PORT = process.env.WHATSAPP_PORT || 3001;
+const PORT = Number(process.env.PORT || process.env.WHATSAPP_PORT) || 3001;
 
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 // 📦 تخزين جلسات المستخدمين
 const userSessions = new Map();
+
+function authHeaders(token) {
+  return { Authorization: 'Bearer ' + token };
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // 📥 الـ Webhook لاستقبال الرسائل
@@ -63,7 +68,7 @@ app.post('/api/whatsapp/webhook', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════
 
 async function handleTextMessage(senderNumber, message) {
-  const lowerMessage = message.toLowerCase().trim();
+  const lowerMessage = (message || '').toLowerCase().trim();
   let session = userSessions.get(senderNumber) || {};
 
   try {
@@ -164,7 +169,7 @@ async function handleTextMessage(senderNumber, message) {
           sendMessage(senderNumber, `
 ✅ *تسجيل الدخول ناجح!*
 
-👋 أهلاً بك يا ${loginResponse.data.username}
+👋 أهلاً بك يا ${loginResponse.data.user?.username || 'مستخدم'}
 
 الآن يمكنك:
 📤 رفع الملفات
@@ -262,12 +267,12 @@ async function handleMediaMessage(senderNumber, body) {
       {
         headers: {
           ...form.getHeaders(),
-          Authorization: `Bearer ${session.token}`
+          ...authHeaders(session.token)
         }
       }
     );
 
-    const docId = uploadResponse.data.id;
+    const docId = uploadResponse.data.documentId || uploadResponse.data.id;
 
     sendMessage(senderNumber, `
 ✅ *تم الرفع بنجاح!*
@@ -300,11 +305,11 @@ async function handleMediaMessage(senderNumber, body) {
 async function showDocuments(senderNumber, token) {
   try {
     const response = await axios.get(`${API_BASE_URL}/api/documents`, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: authHeaders(token)
     });
 
-    const docs = response.data;
-    if (!docs || docs.length === 0) {
+    const docs = response.data?.documents || [];
+    if (docs.length === 0) {
       sendMessage(senderNumber, '📭 لا توجد مستندات حالياً');
       return;
     }
@@ -325,22 +330,23 @@ async function showDocuments(senderNumber, token) {
 async function showStatistics(senderNumber, token) {
   try {
     const response = await axios.get(`${API_BASE_URL}/api/dashboard/stats`, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: authHeaders(token)
     });
 
-    const stats = response.data;
+    const stats = response.data?.stats || {};
+    const statusMap = Object.fromEntries((stats.by_status || []).map((item) => [item.status, Number(item.count) || 0]));
 
     const statsMessage = `
 📊 *الإحصائيات:*
 
-📄 إجمالي المستندات: ${stats.totalDocuments || 0}
-✅ المعالجة: ${stats.processedDocuments || 0}
-⏳ قيد المعالجة: ${stats.pendingDocuments || 0}
-❌ الأخطاء: ${stats.failedDocuments || 0}
+📄 إجمالي المستندات: ${stats.total_documents || 0}
+✅ المعالجة: ${statusMap.completed || 0}
+⏳ قيد المعالجة: ${statusMap.processing || statusMap.pending || 0}
+❌ الأخطاء: ${statusMap.failed || statusMap.error || 0}
 
 📈 *المعدل:*
-⚡ متوسط الوقت: ${stats.avgProcessingTime || 0} ثانية
-💾 إجمالي الملفات: ${stats.totalProcessedFiles || 0}
+⚡ إجمالي الحجم: ${stats.total_size || '0 MB'}
+💾 إجمالي الملفات: ${statusMap.completed || 0}
     `;
 
     sendMessage(senderNumber, statsMessage);
@@ -364,10 +370,10 @@ async function monitorDocumentProcessing(senderNumber, docId, token, fileName) {
 
     try {
       const response = await axios.get(`${API_BASE_URL}/api/documents/${docId}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: authHeaders(token)
       });
 
-      const doc = response.data;
+      const doc = response.data?.document || response.data;
 
       if (doc.status === 'completed') {
         clearInterval(checkStatus);
@@ -472,13 +478,13 @@ function sendMessage(to, message) {
 // 🚀 تشغيل الخادم
 // ═══════════════════════════════════════════════════════════════════
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log('\n');
   console.log('╔════════════════════════════════════════════════════════╗');
   console.log('║    📱 WhatsApp Bot (Twilio) يعمل بنجاح!              ║');
   console.log('╠════════════════════════════════════════════════════════╣');
   console.log(`║ 🌐 Webhook: http://localhost:${PORT}/api/whatsapp/webhook   ║`);
-  console.log(`║ 📱 WhatsApp Number: ${WHATSAPP_NUMBER}     ║`);
+  console.log('║ 📱 WhatsApp Number: [configured]                      ║');
   console.log('║ ⏰ التشغيل: جاري الاستماع للرسائل...                ║');
   console.log('╚════════════════════════════════════════════════════════╝');
   console.log('\n');
