@@ -33,6 +33,14 @@ const { Pool } = pg;
       password: process.env.DB_PASSWORD || 'password',
       port: process.env.DB_PORT || 5432,
     });
+// إنشاء الجداول تلقائياً عند بدء التشغيل
+const fsSync = fs;
+if (fsSync.existsSync(path.join(__dirname, 'DATABASE_SETUP.sql'))) {
+  const sqlScript = fsSync.readFileSync(path.join(__dirname, 'DATABASE_SETUP.sql'), 'utf8');
+  pool.query(sqlScript)
+    .then(() => console.log('✅ تم التأكد من وجود الجداول بنجاح'))
+    .catch((err) => console.log('⚠️ ملاحظة إنشاء الجداول:', err.message));
+}
 // ✅ Middleware
 app.use(cors());
 app.use(express.json());
