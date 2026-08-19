@@ -10,7 +10,8 @@
     "setup": "node setup.js",
     "telegram": "node telegram-bot.js",
     "whatsapp": "node whatsapp-bot.js",
-    "bots": "concurrently \"npm start\" \"npm run telegram\" \"npm run whatsapp\""
+    "bots": "concurrently \"npm start\" \"npm run telegram\" \"npm run whatsapp\"",
+    "start-bot": "node start-bot.js"
   },
   "keywords": [
     "document-processing",
