@@ -250,6 +250,47 @@ npm start
 
 ---
 
+## 🚀 النشر على Render (تشغيل 24/7)
+
+### الخطوات:
+
+**1️⃣ انشر المشروع على GitHub** (هذا المستودع جاهز)
+
+**2️⃣ أنشئ قاعدة بيانات على Render:**
+- اذهب إلى [render.com](https://render.com) → New → **PostgreSQL**
+- احفظ الـ `External Database URL`
+
+**3️⃣ أنشئ Web Service:**
+- New → **Web Service** → اربطه بالـ GitHub repo
+- ضع هذه الإعدادات:
+  - **Build Command:** `npm install`
+  - **Start Command:** `node server.js`
+  - **Environment:** Node
+
+**4️⃣ أضف متغيرات البيئة** (Environment Variables):
+
+| المتغير | القيمة |
+|---------|--------|
+| `DATABASE_URL` | (External Database URL من الخطوة 2) |
+| `TELEGRAM_BOT_TOKEN` | توكن بوت Telegram من @BotFather |
+| `TWILIO_ACCOUNT_SID` | Account SID من حساب Twilio |
+| `TWILIO_AUTH_TOKEN` | Auth Token من حساب Twilio |
+| `TWILIO_WHATSAPP_NUMBER` | `whatsapp:+14155238886` (أو رقمك) |
+| `JWT_SECRET` | مفتاح سري طويل وعشوائي |
+| `NODE_ENV` | `production` |
+| `API_BASE_URL` | `https://YOUR_APP.onrender.com` |
+
+**5️⃣ فعّل WhatsApp Webhook على Twilio:**
+- أضف هذا الرابط في لوحة Twilio:
+  `https://YOUR_APP.onrender.com/api/whatsapp/webhook`
+
+**6️⃣ اضغط Deploy** → بعد دقيقتين:
+- ✅ API يعمل
+- ✅ بوت Telegram يعمل (polling تلقائي)
+- ✅ بوت WhatsApp جاهز للاستقبال
+
+---
+
 ## 📊 API الكاملة
 
 | الطريقة | الرابط | الوصف |
@@ -262,6 +303,8 @@ npm start
 | `GET` | `/api/documents/:id/download` | تحميل النتيجة |
 | `DELETE` | `/api/documents/:id` | حذف ملف |
 | `GET` | `/api/dashboard/stats` | الإحصائيات |
+| `GET` | `/api/health` | فحص صحة النظام |
+| `POST` | `/api/whatsapp/webhook` | استقبال رسائل WhatsApp |
 
 ---
 
